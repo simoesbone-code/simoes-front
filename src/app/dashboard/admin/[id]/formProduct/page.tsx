@@ -20,6 +20,8 @@ import {
   RemoveImageButton,
   Field,
   Button,
+  ProgressBar,
+  ProgressBarContainer,
 } from "./styles";
 
 export default function ProductForm() {
@@ -37,6 +39,9 @@ export default function ProductForm() {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [progress, setProgress] = useState(0); // 0 a 100
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [form, setForm] = useState({
     name: "",
     category: "",
@@ -100,12 +105,11 @@ export default function ProductForm() {
     }
 
     try {
+      setIsSubmitting(true);
+      setProgress(0);
+
       const formData = new FormData();
-
-      if (imageFile) {
-        formData.append("image", imageFile);
-      }
-
+      if (imageFile) formData.append("image", imageFile);
       formData.append("name", form.name);
       formData.append("category", form.category);
       formData.append("priceUnit", String(form.priceUnit));
@@ -122,6 +126,14 @@ export default function ProductForm() {
         url,
         data: formData,
         headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (event) => {
+          if (event.total) {
+            const percentCompleted = Math.round(
+              (event.loaded * 100) / event.total,
+            );
+            setProgress(percentCompleted); // Atualiza barra conforme bytes enviados
+          }
+        },
       });
 
       alert(
@@ -134,6 +146,9 @@ export default function ProductForm() {
     } catch (error) {
       console.error(error);
       alert("Erro ao salvar produto");
+    } finally {
+      setIsSubmitting(false);
+      setProgress(0); // Zera a barra ao finalizar
     }
   }
 
@@ -215,9 +230,34 @@ export default function ProductForm() {
           />
         </Field>
 
-        <Button type="submit">
-          {isEditing ? "Atualizar produto" : "Cadastrar produto"}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting
+            ? `Enviando... ${progress}%`
+            : isEditing
+              ? "Atualizar produto"
+              : "Cadastrar produto"}
         </Button>
+
+        {isSubmitting && (
+          <div
+            style={{
+              marginTop: "8px",
+              height: "6px",
+              background: "#eee",
+              borderRadius: "3px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${progress}%`,
+                height: "100%",
+                background: "#4caf50",
+                transition: "width 0.1s linear",
+              }}
+            />
+          </div>
+        )}
       </Form>
 
       {/* MODAL DE CORTE */}

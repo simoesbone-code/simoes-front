@@ -26,7 +26,7 @@ export const MenuToggleButton = styled.button`
 
   background: transparent;
   border: none;
-  color: #ffff;
+  color: #f97316;
   cursor: pointer;
 
   position: relative;
@@ -105,3 +105,14 @@ export const LogoutButton = styled.button`
 `;
 
 export const BoxProductList = styled.div``;
+
+export const EmptyMessage = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh; // ocupa boa parte da tela
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #f97316;
+  text-align: center;
+`;

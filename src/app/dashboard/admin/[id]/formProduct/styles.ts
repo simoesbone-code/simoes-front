@@ -118,4 +118,24 @@ export const Button = styled.button`
   &:hover {
     background: #ea580c;
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+`;
+
+export const ProgressBarContainer = styled.div`
+  margin-top: 8px;
+  height: 6px;
+  background: #eee;
+  border-radius: 3px;
+  overflow: hidden;
+`;
+
+export const ProgressBar = styled.div<{ width: number }>`
+  width: ${(props) => props.width}%;
+  height: 100%;
+  background: #4caf50;
+  transition: width 0.2s;
 `;

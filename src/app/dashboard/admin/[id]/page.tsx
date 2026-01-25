@@ -16,6 +16,7 @@ import {
   LogoutButton,
   MenuToggleButton,
   BoxProductList,
+  EmptyMessage,
 } from "./styles";
 import { destroyCookie } from "nookies";
 import { getProduct } from "@/hooks/useClient";
@@ -70,7 +71,11 @@ export default function Sidebar() {
 
       <Wrapper>
         <BoxProductList>
-          <CatalogPage adm="admin" products={dataProduct} />
+          {dataProduct && dataProduct.length > 0 ? (
+            <CatalogPage adm="admin" products={dataProduct} />
+          ) : (
+            <EmptyMessage>Nenhum produto registrado...</EmptyMessage>
+          )}
         </BoxProductList>
       </Wrapper>
     </>
