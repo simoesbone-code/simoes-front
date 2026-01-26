@@ -61,3 +61,48 @@ export const Card = styled.div`
     }
   }
 `;
+
+export const SkeletonCard = styled.div`
+  background: #f3f4f6;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #f3f4f6 25%, #e0e0e0 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  .title {
+    width: 70%;
+    height: 16px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #f3f4f6 25%, #e0e0e0 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  .subtitle {
+    width: 50%;
+    height: 12px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #f3f4f6 25%, #e0e0e0 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+`;

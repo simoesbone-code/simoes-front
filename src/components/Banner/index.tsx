@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Container, Slide, Content } from "./styles";
+import { Container, Slide, Content, SkeletonBanner } from "./styles";
 import { getBanner } from "@/hooks/useClient";
 import { PropsBanner } from "@/types/banner";
 
 export function Banner() {
-  const { data: dataBanner = [] } = useQuery<PropsBanner[]>({
+  const { data: dataBanner = [], isLoading } = useQuery<PropsBanner[]>({
     queryKey: ["Banner"],
     queryFn: getBanner,
   });
@@ -18,13 +18,20 @@ export function Banner() {
     if (dataBanner.length <= 1) return;
 
     const interval = setInterval(() => {
-      setCurrent((prev) =>
-        prev === dataBanner.length - 1 ? 0 : prev + 1
-      );
+      setCurrent((prev) => (prev === dataBanner.length - 1 ? 0 : prev + 1));
     }, 4000);
 
     return () => clearInterval(interval);
   }, [dataBanner]);
+
+  /** 🦴 Skeleton enquanto carrega */
+  if (isLoading) {
+    return (
+      <Container>
+        <SkeletonBanner />
+      </Container>
+    );
+  }
 
   if (!dataBanner.length) return null;
 
@@ -37,8 +44,8 @@ export function Banner() {
           background={banner.image.url}
         >
           <Content>
-            <span></span>
-            <strong></strong>
+            <span />
+            <strong />
           </Content>
         </Slide>
       ))}
