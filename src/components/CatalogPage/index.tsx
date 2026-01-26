@@ -141,13 +141,12 @@ const UpdateButton = styled.button`
 type Props = {
   products?: PropsProduct[];
   adm?: string;
+  refetch: () => void;
 };
 
-export default function CatalogPage({ products, adm }: Props) {
+export default function CatalogPage({ products, adm, refetch }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-
-  console.log(pathname);
 
   const [search, setSearch] = useState("");
   const [openSearch, setOpenSearch] = useState(false);
@@ -156,6 +155,8 @@ export default function CatalogPage({ products, adm }: Props) {
   const [selectedProduct, setSelectedProduct] = useState<PropsProduct | null>(
     null,
   );
+
+  console.log(selectedProduct);
 
   useEffect(() => {
     if (openSearch) inputRef.current?.focus();
@@ -193,8 +194,9 @@ export default function CatalogPage({ products, adm }: Props) {
 
       alert("Produto excluído com sucesso!");
 
-      // atualizar lista ou redirecionar
-      router.refresh(); // App Router
+      await refetch();
+
+      setSelectedProduct(null);
     } catch (error) {
       console.error(error);
       alert("Erro ao excluir produto");

@@ -25,7 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import CatalogPage from "@/components/CatalogPage";
 
 export default function Sidebar() {
-  const { data: dataProduct } = useQuery<PropsProduct[]>({
+  const { data: dataProduct, refetch } = useQuery<PropsProduct[]>({
     queryKey: ["Product"],
     queryFn: getProduct,
   });
@@ -63,6 +63,13 @@ export default function Sidebar() {
           </MenuItem>
         </MenuContent>
 
+        <MenuContent>
+          <MenuItem onClick={() => router.push(`${pathname}/formBanner`)}>
+            <FiPlus size={18} />
+            Cadastrar Banner
+          </MenuItem>
+        </MenuContent>
+
         <LogoutButton>
           <FiLogOut size={18} onClick={logout} />
           Sair
@@ -72,7 +79,7 @@ export default function Sidebar() {
       <Wrapper>
         <BoxProductList>
           {dataProduct && dataProduct.length > 0 ? (
-            <CatalogPage adm="admin" products={dataProduct} />
+            <CatalogPage adm="admin" products={dataProduct} refetch={refetch} />
           ) : (
             <EmptyMessage>Nenhum produto registrado...</EmptyMessage>
           )}
