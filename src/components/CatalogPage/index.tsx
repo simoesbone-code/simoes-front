@@ -10,6 +10,10 @@ import ProductList from "../ProductList";
 
 import { FiArrowLeft } from "react-icons/fi";
 
+type CategoryButtonProps = {
+  active: boolean;
+};
+
 /* ================== STYLES ================== */
 
 const Page = styled.main`
@@ -117,27 +121,46 @@ const BannerSubtitle = styled.p`
 
 /* ===== CATEGORIES ===== */
 
-const Categories = styled.div`
-  max-width: 1100px;
-  margin: 0 auto 36px;
+export const Categories = styled.div`
   display: flex;
-  gap: 14px;
+  gap: 16px;
   overflow-x: auto;
+  white-space: nowrap;
+  padding-bottom: 8px;
+
+  -webkit-overflow-scrolling: touch;
+
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
-const CategoryButton = styled.button<{ active: boolean }>`
-  border: 2px solid ${({ active }) => (active ? "#f97316" : "transparent")};
+export const CategoryButton = styled.button<CategoryButtonProps>`
+  flex: 0 0 auto;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
-  padding: 3px;
-  background: transparent;
+  background: #fff;
   cursor: pointer;
+
+  border: ${({ active }) =>
+    active ? "3px solid #f97316" : "2px solid #e5e7eb"};
+
+  @media (min-width: 1024px) {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
 `;
 
-const CategoryImage = styled.img`
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
+export const CategoryImage = styled.img`
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 `;
 
 /* ===== CONTENT ===== */
