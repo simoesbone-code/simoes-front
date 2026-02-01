@@ -1,149 +1,73 @@
-import styled, { createGlobalStyle } from "styled-components";
+import styled from "styled-components";
 
-export const GlobalStyles = createGlobalStyle`
-  body {
-    background: #5D5D5D;
+/* GRID */
+export const List = styled.section`
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(4, 1fr);
   }
 `;
 
-export const List = styled.section`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-`;
-
-/* Card base */
+/* CARD */
 export const Card = styled.article`
-  position: relative;
-
-  width: 100%;
-
-  max-width: 700px;
-  height: 80vh;
-  max-height: 820px;
-
   background: #ffffff;
-  border-radius: 20px;
-  padding: 36px;
-
+  border-radius: 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  margin-bottom: 48px;
+  gap: 10px;
 
-  /* Sombreamento */
-  box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.08),
-    0 40px 80px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 `;
 
-/* Imagem */
+/* IMAGEM */
 export const ImageBox = styled.div`
-  width: 80%;
-
-  display: flex;
-  justify-content: baseline;
-
+  width: 100%;
+  height: 160px;
+  border-radius: 12px;
   overflow: hidden;
 `;
 
 export const ProductImage = styled.img`
-  max-width: 100%;
-  object-fit: contain;
-  border-radius: 20px;
-  border: 2px solid #e5e7eb;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 `;
 
-/* Título */
-export const Title = styled.h2`
-  margin-top: 22px;
-  font-size: 1.6rem;
+/* TITULO */
+export const Title = styled.h3`
+  font-size: 0.95rem;
   font-weight: 700;
   color: #111827;
 `;
 
-/* Preços */
+/* PREÇOS */
 export const Prices = styled.div`
-  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  gap: 6px;
 `;
 
-export const PriceGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-`;
-
-export const PriceLabel = styled.span`
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #000;
-`;
-
-export const PriceValue = styled.div`
-  color: #ffffff;
-  padding: 10px 30px;
+export const PriceTag = styled.div`
   background: #d97745;
+  color: #fff;
   border-radius: 6px;
-  font-weight: 700;
-  font-size: 1.2rem;
-  min-width: 100px;
-  text-align: center;
-`;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
 
-/* 🎨 Decorações (bolinhas) */
-export const DecorationTop = styled.div`
-  position: absolute;
-  top: 20px;
-  right: 15px;
-  width: 50px;
-  height: 50px;
-  background: #d97745;
-  border-radius: 50%;
+  display: flex;
+  justify-content: space-between;
 
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    background: #d97745;
-    border-radius: 50%;
-  }
-
-  &::before {
-    width: 29px;
-    height: 29px;
-    top: 40px;
-    right: 50px;
-  }
-
-  &::after {
-    width: 30px;
-    height: 30px;
-    top: 60px;
-    right: 0;
-  }
-`;
-
-export const DecorationBottom = styled.div`
-  position: absolute;
-  bottom: 26px;
-  left: 24px;
-  width: 28px;
-  height: 28px;
-  background: #d97745;
-  border-radius: 50%;
-
-  &::after {
-    content: "";
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    background: #d97745;
-    border-radius: 50%;
-    left: 34px;
-    bottom: 4px;
+  span {
+    font-weight: 700;
   }
 `;

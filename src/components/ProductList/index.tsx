@@ -2,20 +2,15 @@
 
 import { PropsProduct } from "@/types/product";
 import {
+  Card,
+  ImageBox,
+  ProductImage,
   Title,
   Prices,
-  Card,
-  DecorationBottom,
-  DecorationTop,
-  ImageBox,
-  PriceGroup,
-  PriceLabel,
-  PriceValue,
-  ProductImage,
+  PriceTag,
   List,
-  GlobalStyles,
 } from "./styles";
-import style from "styled-jsx/style";
+import { useRouter } from "next/navigation";
 
 type Props = {
   products: PropsProduct[] | undefined;
@@ -24,54 +19,44 @@ type Props = {
 };
 
 export default function ProductList({ products, isAdmin, onSelect }: Props) {
+  const router = useRouter();
+
+  console.log(isAdmin, "teste")
+
   return (
-    <>
-      <GlobalStyles />
-      <List>
-        {products?.map((item) => {
-          const Wrapper = isAdmin ? "button" : "div";
+    <List>
+      {products?.map((item) => {
+        const Wrapper = isAdmin ? "button" : "div";
 
-          return (
-            <Wrapper
-              key={item._id}
-              onClick={isAdmin ? () => onSelect?.(item) : undefined}
-              style={{
-                all: "unset",
-                width: "100%",
-                cursor: isAdmin ? "pointer" : "default",
-              }}
-            >
-              <Card>
-                <DecorationTop />
-                <DecorationBottom />
+        return (
+          <Wrapper
+            key={item._id}
+            onClick={isAdmin ? () => onSelect?.(item) : undefined}
+            style={{
+              all: "unset",
+              cursor: isAdmin ? "pointer" : "default",
+            }}
+          >
+            <Card onClick={() => isAdmin ? null : router.push(`/catalog/${item._id}`)}>
+              <ImageBox>
+                <ProductImage src={item.image.url} alt={item.name} />
+              </ImageBox>
 
-                <ImageBox>
-                  <ProductImage
-                    src={item.image.url}
-                    alt={item.image.filename}
-                    width={1000}
-                    height={1000}
-                  />
-                </ImageBox>
+              <Title>{item.name}</Title>
 
-                <Title>{item.name}</Title>
+              <Prices>
+                <PriceTag>
+                  Unidade <span>R$ {item.priceUnit}</span>
+                </PriceTag>
 
-                <Prices>
-                  <PriceGroup>
-                    <PriceLabel>Unidade:</PriceLabel>
-                    <PriceValue>R$ {item.priceUnit}</PriceValue>
-                  </PriceGroup>
-
-                  <PriceGroup>
-                    <PriceLabel>Atacado:</PriceLabel>
-                    <PriceValue>R$ {item.priceWholesale}</PriceValue>
-                  </PriceGroup>
-                </Prices>
-              </Card>
-            </Wrapper>
-          );
-        })}
-      </List>
-    </>
+                <PriceTag>
+                  Atacado <span>R$ {item.priceWholesale}</span>
+                </PriceTag>
+              </Prices>
+            </Card>
+          </Wrapper>
+        );
+      })}
+    </List>
   );
 }

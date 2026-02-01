@@ -24,7 +24,12 @@ export function Header() {
 
   return (
     <Container>
-      <h1>Simões Boné</h1>
+      <div className="flex items-center">
+        <img
+          src="https://res.cloudinary.com/dz46wt0iy/image/upload/fl_preserve_transparency/v1769912818/1769912016331_ox3dlk.jpg?_s=public-apps"
+          alt="icon"
+        />
+      </div>
 
       {credentialVerifier ? (
         <button onClick={() => router.push(`/dashboard/admin/${tokenUserId}`)}>

@@ -7,10 +7,15 @@ export const Container = styled.header`
   align-items: center;
 
   width: 100%;
-  padding: 16px 20px;
+  padding: 0px 10px;
   font-size: 1.4rem;
   font-weight: 700;
   color: #f97316;
   border-bottom: 1px solid #e5e7eb;
   background: #ffffff;
+
+
+  img {
+    width: 70px;
+  }
 `;

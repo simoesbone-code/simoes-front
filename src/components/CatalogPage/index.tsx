@@ -3,10 +3,9 @@
 import axios from "@/lib/axios";
 import styled from "styled-components";
 import { useMemo, useState, useRef, useEffect } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { PropsProduct } from "@/types/product";
-
 import ProductList from "../ProductList";
 
 import { FiArrowLeft } from "react-icons/fi";
@@ -15,11 +14,14 @@ import { FiArrowLeft } from "react-icons/fi";
 
 const Page = styled.main`
   min-height: 100vh;
-  padding: 24px 16px 60px;
+  padding: 24px 16px 80px;
 `;
 
+/* ===== TOP BAR ===== */
+
 const TopBar = styled.div`
-  max-width: 700px;
+  max-width: 1100px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -31,7 +33,7 @@ const BackButton = styled.button`
   gap: 6px;
   background: transparent;
   border: none;
-  color: #fff;
+  color: #000;
   cursor: pointer;
 
   &:hover {
@@ -69,18 +71,91 @@ const SearchInput = styled.input`
   }
 `;
 
-const CategorySection = styled.section`
-  margin-bottom: 56px;
+/* ===== BANNER ===== */
+
+const Banner = styled.section`
+  max-width: 1100px;
+  margin: 32px auto 36px;
+  position: relative;
+  height: 180px;
+  border-radius: 20px;
+  overflow: hidden;
+`;
+
+const BannerImage = styled.div<{ image: string }>`
+  position: absolute;
+  inset: 0;
+  background-image: url(${(p) => p.image});
+  background-size: cover;
+  background-position: center;
+  filter: blur(5px) brightness(0.55);
+  transform: scale(1.1);
+`;
+
+const BannerContent = styled.div`
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  padding: 24px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+`;
+
+const BannerTitle = styled.h1`
+  color: #fff;
+  font-size: 1.9rem;
+  font-weight: 800;
+`;
+
+const BannerSubtitle = styled.p`
+  color: #f97316;
+  font-size: 1rem;
+  font-weight: 600;
+`;
+
+/* ===== CATEGORIES ===== */
+
+const Categories = styled.div`
+  max-width: 1100px;
+  margin: 0 auto 36px;
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+`;
+
+const CategoryButton = styled.button<{ active: boolean }>`
+  border: 2px solid ${({ active }) => (active ? "#f97316" : "transparent")};
+  border-radius: 50%;
+  padding: 3px;
+  background: transparent;
+  cursor: pointer;
+`;
+
+const CategoryImage = styled.img`
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+`;
+
+/* ===== CONTENT ===== */
+
+const Content = styled.div`
+  max-width: 1100px;
+  margin: 0 auto;
 `;
 
 const CategoryTitle = styled.h2`
   font-size: 1.8rem;
-  color: #fff;
+  font-weight: 800;
+  color: #f97316;
   margin-bottom: 24px;
 `;
 
 const EmptyState = styled.div`
-  min-height: 60vh;
+  min-height: 50vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,7 +164,7 @@ const EmptyState = styled.div`
   font-weight: 700;
 `;
 
-/* ================== MODAL ================== */
+/* ===== MODAL ===== */
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -152,55 +227,58 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
   const [openSearch, setOpenSearch] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<PropsProduct | null>(
     null,
   );
-
-  console.log(selectedProduct);
 
   useEffect(() => {
     if (openSearch) inputRef.current?.focus();
   }, [openSearch]);
 
+  /* ===== GROUP BY CATEGORY ===== */
   const productsByCategory = useMemo(() => {
     if (!products) return {};
 
-    return products
-      .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
-      .reduce(
-        (acc, product) => {
-          const category = product.category || "Outros";
-          acc[category] = acc[category] || [];
-          acc[category].push(product);
-          return acc;
-        },
-        {} as Record<string, PropsProduct[]>,
-      );
-  }, [products, search]);
-
-  const hasResults = Object.values(productsByCategory).some(
-    (items) => items.length > 0,
-  );
-
-  const handleDelete = async (deleteId: string) => {
-    const confirmDelete = window.confirm(
-      "Tem certeza que deseja excluir este produto?",
+    return products.reduce(
+      (acc, product) => {
+        const category = product.category || "Outros";
+        acc[category] = acc[category] || [];
+        acc[category].push(product);
+        return acc;
+      },
+      {} as Record<string, PropsProduct[]>,
     );
+  }, [products]);
 
-    if (!confirmDelete) return;
-
-    try {
-      await axios.delete(`product/delete-product/${deleteId}`);
-
-      alert("Produto excluído com sucesso!");
-
-      await refetch();
-
-      setSelectedProduct(null);
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao excluir produto");
+  /* ===== DEFAULT CATEGORY ===== */
+  useEffect(() => {
+    if (!selectedCategory && Object.keys(productsByCategory).length > 0) {
+      setSelectedCategory(Object.keys(productsByCategory)[0]);
     }
+  }, [productsByCategory, selectedCategory]);
+
+  /* ===== BANNER PRODUCT ===== */
+  const bannerProduct =
+    selectedCategory && productsByCategory[selectedCategory]
+      ? productsByCategory[selectedCategory][0]
+      : null;
+
+  /* ===== FILTERED PRODUCTS ===== */
+  const filteredProducts =
+    selectedCategory && productsByCategory[selectedCategory]
+      ? productsByCategory[selectedCategory].filter((p) =>
+          p.name.toLowerCase().includes(search.toLowerCase()),
+        )
+      : [];
+
+  /* ===== ACTIONS ===== */
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir este produto?")) return;
+
+    await axios.delete(`product/delete-product/${id}`);
+    await refetch();
+    setSelectedProduct(null);
   };
 
   const handleUpdate = (product: PropsProduct) => {
@@ -211,7 +289,7 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     <Page>
       <TopBar>
         {adm === "admin" ? (
-          <div style={{ width: 90 }} />
+          <div />
         ) : (
           <BackButton onClick={() => router.push("/")}>
             <FiArrowLeft size={20} />
@@ -230,28 +308,51 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
               placeholder="Buscar produto"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onBlur={() => !search && setOpenSearch(false)}
             />
           )}
         </SearchWrapper>
       </TopBar>
 
-      {!hasResults && search && (
-        <EmptyState>Produto não existente no catálogo!</EmptyState>
+      {/* ===== BANNER ===== */}
+      {bannerProduct && (
+        <Banner>
+          <BannerImage image={bannerProduct.image.url} />
+          <BannerContent>
+            <BannerTitle>{selectedCategory}</BannerTitle>
+            <BannerSubtitle>Modelos para varejo e atacado</BannerSubtitle>
+          </BannerContent>
+        </Banner>
       )}
 
-      {hasResults &&
-        Object.entries(productsByCategory).map(([category, items]) => (
-          <CategorySection key={category}>
-            <CategoryTitle>{category}</CategoryTitle>
+      {/* ===== CATEGORIES ===== */}
+      <Categories>
+        {Object.entries(productsByCategory).map(([category, items]) => (
+          <CategoryButton
+            key={category}
+            active={selectedCategory === category}
+            onClick={() => setSelectedCategory(category)}
+          >
+            <CategoryImage src={items[0].image.url} />
+          </CategoryButton>
+        ))}
+      </Categories>
+
+      {/* ===== PRODUCTS ===== */}
+      <Content>
+        {filteredProducts.length === 0 ? (
+          <EmptyState>Nenhum produto encontrado</EmptyState>
+        ) : (
+          <>
+            <CategoryTitle>{selectedCategory}</CategoryTitle>
 
             <ProductList
-              products={items}
+              products={filteredProducts}
               isAdmin={adm === "admin"}
               onSelect={setSelectedProduct}
             />
-          </CategorySection>
-        ))}
+          </>
+        )}
+      </Content>
 
       {selectedProduct && (
         <ModalOverlay onClick={() => setSelectedProduct(null)}>
