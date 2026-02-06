@@ -11,6 +11,8 @@ import {
   List,
 } from "./styles";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import PageLoading from "../PageLoading/page";
 
 type Props = {
   products: PropsProduct[] | undefined;
@@ -20,8 +22,12 @@ type Props = {
 
 export default function ProductList({ products, isAdmin, onSelect }: Props) {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  console.log(isAdmin, "teste")
+  const handleNavigate = (id: string) => {
+    setLoading(true);
+    router.push(`/catalog/${id}`);
+  };
 
   return (
     <List>
@@ -37,7 +43,9 @@ export default function ProductList({ products, isAdmin, onSelect }: Props) {
               cursor: isAdmin ? "pointer" : "default",
             }}
           >
-            <Card onClick={() => isAdmin ? null : router.push(`/catalog/${item._id}`)}>
+            <Card
+              onClick={isAdmin ? undefined : () => handleNavigate(item._id)}
+            >
               <ImageBox>
                 <ProductImage src={item.image.url} alt={item.name} />
               </ImageBox>
@@ -57,6 +65,8 @@ export default function ProductList({ products, isAdmin, onSelect }: Props) {
           </Wrapper>
         );
       })}
+
+      <PageLoading visible={loading} />
     </List>
   );
 }
