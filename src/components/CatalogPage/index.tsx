@@ -9,6 +9,7 @@ import { PropsProduct } from "@/types/product";
 import ProductList from "../ProductList";
 
 import { FiArrowLeft } from "react-icons/fi";
+import PageLoading from "../PageLoading/page";
 
 type CategoryButtonProps = {
   active: boolean;
@@ -249,6 +250,7 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
   const [search, setSearch] = useState("");
   const [openSearch, setOpenSearch] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<PropsProduct | null>(
@@ -314,7 +316,12 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
         {adm === "admin" ? (
           <div />
         ) : (
-          <BackButton onClick={() => router.push("/")}>
+          <BackButton
+            onClick={() => {
+              setLoading(true);
+              router.push("/");
+            }}
+          >
             <FiArrowLeft size={20} />
             Voltar
           </BackButton>
@@ -394,6 +401,8 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
           </ModalContent>
         </ModalOverlay>
       )}
+
+      <PageLoading visible={loading} />
     </Page>
   );
 }

@@ -7,20 +7,30 @@ import { Container } from "./styles";
 
 import { CgProfile } from "react-icons/cg";
 import { IoHomeSharp } from "react-icons/io5";
+import PageLoading from "../PageLoading/page";
 
 export function Header() {
   const router = useRouter();
 
   const [credentialVerifier, setCredentialVerifier] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const { "nextauth.token": tokenParse } = parseCookies();
   const { "nextauth.userId": tokenUserId } = parseCookies();
 
+  const handleNavigate = () => {
+    setLoading(true);
+
+    if (credentialVerifier && tokenUserId) {
+      router.push(`/dashboard/admin/${tokenUserId}`);
+    } else {
+      router.push("/auth");
+    }
+  };
+
   useEffect(() => {
     setCredentialVerifier(Boolean(tokenParse && tokenUserId));
   }, [tokenParse, tokenUserId]);
-
-  console.log(credentialVerifier);
 
   return (
     <Container>
@@ -32,14 +42,16 @@ export function Header() {
       </div>
 
       {credentialVerifier ? (
-        <button onClick={() => router.push(`/dashboard/admin/${tokenUserId}`)}>
+        <button onClick={handleNavigate}>
           <IoHomeSharp />
         </button>
       ) : (
-        <button onClick={() => router.push("/auth")}>
+        <button onClick={handleNavigate}>
           <CgProfile />
         </button>
       )}
+
+      <PageLoading visible={loading} />
     </Container>
   );
 }

@@ -1,11 +1,13 @@
 "use client";
 
 import { BackButton } from "@/app/auth/styles";
+import PageLoading from "@/components/PageLoading/page";
 import { WhatsAppFloatingButton } from "@/components/WhatsAppFloatingButton";
 import { getProduct } from "@/hooks/useClient";
 import { PropsProduct } from "@/types/product";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 import { FiArrowLeft } from "react-icons/fi";
 
 export default function ProductPage() {
@@ -15,8 +17,9 @@ export default function ProductPage() {
   });
 
   const router = useRouter();
-
   const { producId } = useParams();
+
+  const [loading, setLoading] = useState(false);
 
   const product = dataProduct?.find((p) => p._id === producId);
 
@@ -47,7 +50,12 @@ export default function ProductPage() {
 
   return (
     <div className="page">
-      <BackButton onClick={() => router.push("/catalog")}>
+      <BackButton
+        onClick={() => {
+          setLoading(true);
+          router.push("/catalog");
+        }}
+      >
         <FiArrowLeft size={20} />
         Voltar
       </BackButton>
@@ -203,6 +211,8 @@ export default function ProductPage() {
           }
         }
       `}</style>
+
+      <PageLoading visible={loading} />
     </div>
   );
 }
