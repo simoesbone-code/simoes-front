@@ -1,0 +1,90 @@
+"use client";
+
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+
+import { FiMenu, FiX, FiLogOut, FiPlus } from "react-icons/fi";
+
+import {
+  Wrapper,
+  MenuButton,
+  Overlay,
+  SidebarContainer,
+  CompanyName,
+  MenuContent,
+  MenuItem,
+  LogoutButton,
+  MenuToggleButton,
+  BoxProductList,
+  EmptyMessage,
+} from "./styles";
+import { destroyCookie } from "nookies";
+import { getProduct } from "@/hooks/useClient";
+import { PropsProduct } from "@/types/product";
+import { useQuery } from "@tanstack/react-query";
+import CatalogPage from "@/components/CatalogPage";
+
+export default function Sidebar() {
+  const { data: dataProduct, refetch } = useQuery<PropsProduct[]>({
+    queryKey: ["Product"],
+    queryFn: getProduct,
+  });
+
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [isOpen, setIsOpen] = useState(false);
+
+  const logout = () => {
+    destroyCookie(null, "nextauth.token", { path: "/" });
+    destroyCookie(null, "nextauth.userId", { path: "/" });
+
+    router.push("/");
+  };
+
+  return (
+    <>
+      <MenuToggleButton onClick={() => setIsOpen(true)}>
+        <FiMenu size={28} />
+      </MenuToggleButton>
+
+      {isOpen && <Overlay onClick={() => setIsOpen(false)} />}
+
+      <SidebarContainer $isOpen={isOpen}>
+        <MenuButton onClick={() => setIsOpen(false)}>
+          <CompanyName>Simoes Bone</CompanyName>
+          <FiX size={22} />
+        </MenuButton>
+
+        <MenuContent>
+          <MenuItem onClick={() => router.push(`${pathname}/formProduct`)}>
+            <FiPlus size={18} />
+            Cadastrar Produto
+          </MenuItem>
+        </MenuContent>
+
+        <MenuContent>
+          <MenuItem onClick={() => router.push(`${pathname}/formBanner`)}>
+            <FiPlus size={18} />
+            Cadastrar Banner
+          </MenuItem>
+        </MenuContent>
+
+        <LogoutButton>
+          <FiLogOut size={18} onClick={logout} />
+          Sair
+        </LogoutButton>
+      </SidebarContainer>
+
+      <Wrapper>
+        <BoxProductList>
+          {dataProduct && dataProduct.length > 0 ? (
+            <CatalogPage adm="admin" products={dataProduct} refetch={refetch} />
+          ) : (
+            <EmptyMessage>Nenhum produto registrado...</EmptyMessage>
+          )}
+        </BoxProductList>
+      </Wrapper>
+    </>
+  );
+}
