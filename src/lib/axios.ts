@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const URL = "https://simoes-back.vercel.app";
+const URL = "https://simoes-back.vercel.app/";
 
 /* https://simoes-back.vercel.app */
 

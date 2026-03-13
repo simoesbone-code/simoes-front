@@ -1,10 +1,16 @@
 import { PropsProduct } from "@/types/product";
-import { Grid, Card, SkeletonCard } from "./styles";
+import {
+  Grid,
+  Card,
+  ImageBox,
+  Info,
+  SkeletonCard,
+} from "./styles";
 import Image from "next/image";
 
 interface PropsDataProduct {
   dataProduct: PropsProduct[] | undefined;
-  isLoading?: boolean; // flag para controlar o carregamento
+  isLoading?: boolean;
 }
 
 export function ProductGrid({ dataProduct, isLoading }: PropsDataProduct) {
@@ -12,7 +18,6 @@ export function ProductGrid({ dataProduct, isLoading }: PropsDataProduct) {
     ? [...dataProduct].sort(() => Math.random() - 0.5).slice(0, 4)
     : [];
 
-  // Se estiver carregando, mostramos 4 cards de esqueleto
   if (isLoading) {
     return (
       <Grid>
@@ -31,16 +36,19 @@ export function ProductGrid({ dataProduct, isLoading }: PropsDataProduct) {
     <Grid>
       {productsRandom.map((item) => (
         <Card key={item._id}>
-          <div className="image-wrapper">
+          <ImageBox>
             <Image
               src={item.image.url}
               alt={item.image.filename}
               fill
               style={{ objectFit: "cover" }}
             />
-          </div>
-          <h3>{item.name}</h3>
-          <span>Consulte disponibilidade</span>
+          </ImageBox>
+
+          <Info>
+            <h3>{item.name}</h3>
+            <span>Consulte disponibilidade</span>
+          </Info>
         </Card>
       ))}
     </Grid>
