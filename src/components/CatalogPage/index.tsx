@@ -3,23 +3,102 @@
 import axios from "@/lib/axios";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
 import { PropsProduct } from "@/types/product";
 import ProductList from "../ProductList";
 
-import {
-  FiArrowLeft,
-  FiSearch,
-  FiEdit2,
-  FiTrash2,
-} from "react-icons/fi";
+import { FiArrowLeft, FiSearch, FiEdit2, FiTrash2 } from "react-icons/fi";
 import PageLoading from "../PageLoading/page";
+
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  horizontalListSortingStrategy,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+import {
+  getCatalogConfig,
+  saveCategoryOrder,
+  saveProductOrder,
+  CatalogConfigResponse,
+} from "@/hooks/useClient";
 
 type Props = {
   products?: PropsProduct[];
   adm?: string;
   refetch: () => void;
 };
+
+type ProductsByCategory = Record<string, PropsProduct[]>;
+
+function SortableCategoryCard({
+  category,
+  image,
+  isActive,
+  onClick,
+  sortable,
+}: {
+  category: string;
+  image: string;
+  isActive: boolean;
+  onClick: () => void;
+  sortable: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({
+      id: category,
+      disabled: !sortable,
+    });
+
+  const style = sortable
+    ? {
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }
+    : undefined;
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={style}
+      type="button"
+      onClick={onClick}
+      {...(sortable ? attributes : {})}
+      {...(sortable ? listeners : {})}
+      className={`flex w-[92px] min-w-[92px] flex-col items-center gap-2 rounded-[22px] bg-white p-2 transition sm:w-[104px] sm:min-w-[104px] sm:rounded-[26px] sm:p-[10px] ${
+        isActive
+          ? "border-2 border-orange-500 shadow-[0_18px_34px_rgba(249,115,22,0.16)]"
+          : "border border-neutral-200 shadow-[0_10px_22px_rgba(15,23,42,0.04)] hover:-translate-y-[2px] hover:border-orange-300"
+      } ${sortable ? "cursor-grab active:cursor-grabbing touch-none" : ""}`}
+    >
+      <img
+        src={image}
+        alt={category}
+        className="h-[68px] w-[68px] rounded-[18px] object-cover sm:h-[76px] sm:w-[76px] sm:rounded-[22px]"
+      />
+
+      <span
+        className={`block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-bold leading-4 sm:text-[13px] ${
+          isActive ? "text-orange-600" : "text-neutral-700"
+        }`}
+      >
+        {category}
+      </span>
+    </button>
+  );
+}
 
 export default function CatalogPage({ products, adm, refetch }: Props) {
   const router = useRouter();
@@ -35,6 +114,27 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     null,
   );
 
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+  const [productOrderByCategory, setProductOrderByCategory] = useState<
+    Record<string, string[]>
+  >({});
+
+  const isAdmin = adm === "admin";
+
+  const { data: configData } = useQuery<CatalogConfigResponse>({
+    queryKey: ["catalog-config"],
+    queryFn: getCatalogConfig,
+    enabled: isAdmin,
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+  );
+
   useEffect(() => {
     if (openSearch) inputRef.current?.focus();
   }, [openSearch]);
@@ -42,34 +142,101 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
   const productsByCategory = useMemo(() => {
     if (!products) return {};
 
-    return products.reduce(
-      (acc, product) => {
-        const category = product.category || "Outros";
-        acc[category] = acc[category] || [];
-        acc[category].push(product);
-        return acc;
-      },
-      {} as Record<string, PropsProduct[]>,
-    );
+    return products.reduce((acc, product) => {
+      const category = product.category || "Outros";
+      acc[category] = acc[category] || [];
+      acc[category].push(product);
+      return acc;
+    }, {} as ProductsByCategory);
   }, [products]);
 
+  const categoriesFromData = useMemo(
+    () => Object.keys(productsByCategory),
+    [productsByCategory],
+  );
+
   useEffect(() => {
-    if (!selectedCategory && Object.keys(productsByCategory).length > 0) {
-      setSelectedCategory(Object.keys(productsByCategory)[0]);
-    }
-  }, [productsByCategory, selectedCategory]);
+    const backendCategoryOrder = configData?.categoryOrder || [];
+
+    setCategoryOrder(() => {
+      if (!categoriesFromData.length) return [];
+
+      const validBackendOrder = backendCategoryOrder.filter((category) =>
+        categoriesFromData.includes(category),
+      );
+
+      const missingCategories = categoriesFromData.filter(
+        (category) => !validBackendOrder.includes(category),
+      );
+
+      return [...validBackendOrder, ...missingCategories];
+    });
+
+    setSelectedCategory((prev) => {
+      if (prev && categoriesFromData.includes(prev)) return prev;
+      return categoriesFromData[0] ?? null;
+    });
+
+    setProductOrderByCategory(() => {
+      const nextState: Record<string, string[]> = {};
+
+      categoriesFromData.forEach((category) => {
+        const idsFromData = (productsByCategory[category] || []).map(
+          (item) => item._id,
+        );
+        nextState[category] = idsFromData;
+      });
+
+      return nextState;
+    });
+  }, [categoriesFromData, productsByCategory, configData]);
+
+  const orderedCategories = useMemo(() => {
+    return categoryOrder.filter(
+      (category) => productsByCategory[category]?.length,
+    );
+  }, [categoryOrder, productsByCategory]);
+
+  const orderedProductsByCategory = useMemo(() => {
+    const result: ProductsByCategory = {};
+
+    orderedCategories.forEach((category) => {
+      const originalItems = productsByCategory[category] || [];
+      const savedOrder = productOrderByCategory[category] || [];
+
+      if (!savedOrder.length) {
+        result[category] = originalItems;
+        return;
+      }
+
+      const itemsMap = new Map(originalItems.map((item) => [item._id, item]));
+      const orderedItems = savedOrder
+        .map((id) => itemsMap.get(id))
+        .filter(Boolean) as PropsProduct[];
+
+      const missingItems = originalItems.filter(
+        (item) => !orderedItems.some((ordered) => ordered._id === item._id),
+      );
+
+      result[category] = [...orderedItems, ...missingItems];
+    });
+
+    return result;
+  }, [orderedCategories, productsByCategory, productOrderByCategory]);
+
+  const currentProducts =
+    selectedCategory && orderedProductsByCategory[selectedCategory]
+      ? orderedProductsByCategory[selectedCategory]
+      : [];
+
+  const filteredProducts = currentProducts.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase()),
+  );
 
   const bannerProduct =
-    selectedCategory && productsByCategory[selectedCategory]
-      ? productsByCategory[selectedCategory][0]
+    selectedCategory && orderedProductsByCategory[selectedCategory]?.length
+      ? orderedProductsByCategory[selectedCategory][0]
       : null;
-
-  const filteredProducts =
-    selectedCategory && productsByCategory[selectedCategory]
-      ? productsByCategory[selectedCategory].filter((p) =>
-          p.name.toLowerCase().includes(search.toLowerCase()),
-        )
-      : [];
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Tem certeza que deseja excluir este produto?")) return;
@@ -83,10 +250,60 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     router.push(`${pathname}/formProduct?id=${product._id}`);
   };
 
+  const handleCategoryDragEnd = async (event: DragEndEvent) => {
+    if (!isAdmin) return;
+
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = categoryOrder.indexOf(String(active.id));
+    const newIndex = categoryOrder.indexOf(String(over.id));
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newOrder = arrayMove(categoryOrder, oldIndex, newIndex);
+
+    setCategoryOrder(newOrder);
+
+    try {
+      await saveCategoryOrder(newOrder);
+    } catch (error) {
+      console.error("Erro ao salvar ordem das categorias:", error);
+    }
+  };
+
+  const handleProductDragEnd = async (event: DragEndEvent) => {
+    if (!isAdmin || !selectedCategory) return;
+
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const visibleIds = currentProducts.map((item) => item._id);
+    const oldIndex = visibleIds.indexOf(String(active.id));
+    const newIndex = visibleIds.indexOf(String(over.id));
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newIds = arrayMove(visibleIds, oldIndex, newIndex);
+
+    setProductOrderByCategory((prev) => ({
+      ...prev,
+      [selectedCategory]: newIds,
+    }));
+
+    try {
+      await saveProductOrder(selectedCategory, newIds);
+      await refetch();
+    } catch (error) {
+      console.error("Erro ao salvar ordem dos produtos:", error);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#fffaf5] px-3 py-4 text-neutral-900 sm:px-4 sm:py-5 lg:px-6 lg:py-6">
       <div className="mx-auto w-full max-w-[1180px]">
-        {/* TOPO */}
         <div className="mb-5 flex flex-col gap-4 sm:mb-6 sm:gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-4 sm:gap-3 md:flex-row md:items-center">
             {adm === "admin" ? null : (
@@ -107,7 +324,8 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                 Catálogo
               </h1>
               <p className="mt-1 text-sm leading-6 text-neutral-500 sm:text-[15px]">
-                Explore as categorias e encontre os produtos com mais facilidade.
+                Explore as categorias e encontre os produtos com mais
+                facilidade.
               </p>
             </div>
           </div>
@@ -132,10 +350,8 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
           </div>
         </div>
 
-        {/* HERO */}
         {bannerProduct && (
           <section className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)] lg:gap-5">
-            {/* BANNER */}
             <div className="relative min-h-[230px] overflow-hidden rounded-[22px] border border-orange-200 bg-neutral-900 shadow-[0_24px_60px_rgba(249,115,22,0.12)] sm:min-h-[280px] sm:rounded-[26px] lg:min-h-[360px] lg:rounded-[30px]">
               <div
                 className="absolute inset-0 scale-[1.04] bg-cover bg-center"
@@ -159,44 +375,17 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
               </div>
             </div>
 
-            {/* CARD LATERAL AJUSTADO PARA MOBILE */}
-            <aside
-              className="
-                flex flex-col justify-between gap-4
-                rounded-2xl border border-orange-100 bg-white
-                p-4 shadow-sm
-                sm:gap-5 sm:rounded-[26px] sm:p-6
-                lg:rounded-[30px] lg:p-7
-              "
-            >
+            <aside className="flex flex-col justify-between gap-4 rounded-2xl border border-orange-100 bg-white p-4 shadow-sm sm:gap-5 sm:rounded-[26px] sm:p-6 lg:rounded-[30px] lg:p-7">
               <div>
-                <span
-                  className="
-                    inline-flex rounded-full bg-orange-50 px-3 py-1
-                    text-[10px] font-extrabold uppercase tracking-[0.16em]
-                    text-orange-600
-                    sm:text-xs
-                  "
-                >
+                <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-600 sm:text-xs">
                   Catálogo moderno
                 </span>
 
-                <h2
-                  className="
-                    mt-3 text-xl font-black leading-tight text-neutral-900
-                    sm:mt-4 sm:text-2xl
-                    lg:text-[1.7rem]
-                  "
-                >
+                <h2 className="mt-3 text-xl font-black leading-tight text-neutral-900 sm:mt-4 sm:text-2xl lg:text-[1.7rem]">
                   Uma vitrine mais elegante para seus produtos
                 </h2>
 
-                <p
-                  className="
-                    mt-3 text-sm leading-6 text-neutral-600
-                    sm:text-[15px] sm:leading-7
-                  "
-                >
+                <p className="mt-3 text-sm leading-6 text-neutral-600 sm:text-[15px] sm:leading-7">
                   Selecione uma categoria, pesquise por nome e encontre os itens
                   com uma apresentação mais clara tanto no celular quanto no
                   desktop.
@@ -204,33 +393,15 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
               </div>
 
               <div className="grid gap-2.5 sm:gap-3">
-                <div
-                  className="
-                    rounded-xl border border-orange-100 bg-[#fffaf5]
-                    px-3 py-3 text-sm leading-5 text-[#7c2d12]
-                    sm:rounded-2xl sm:px-4
-                  "
-                >
+                <div className="rounded-xl border border-orange-100 bg-[#fffaf5] px-3 py-3 text-sm leading-5 text-[#7c2d12] sm:rounded-2xl sm:px-4">
                   Navegação mais intuitiva entre categorias.
                 </div>
 
-                <div
-                  className="
-                    rounded-xl border border-orange-100 bg-[#fffaf5]
-                    px-3 py-3 text-sm leading-5 text-[#7c2d12]
-                    sm:rounded-2xl sm:px-4
-                  "
-                >
+                <div className="rounded-xl border border-orange-100 bg-[#fffaf5] px-3 py-3 text-sm leading-5 text-[#7c2d12] sm:rounded-2xl sm:px-4">
                   Busca rápida para localizar produtos com facilidade.
                 </div>
 
-                <div
-                  className="
-                    rounded-xl border border-orange-100 bg-[#fffaf5]
-                    px-3 py-3 text-sm leading-5 text-[#7c2d12]
-                    sm:rounded-2xl sm:px-4
-                  "
-                >
+                <div className="rounded-xl border border-orange-100 bg-[#fffaf5] px-3 py-3 text-sm leading-5 text-[#7c2d12] sm:rounded-2xl sm:px-4">
                   Estrutura responsiva com aparência mais premium.
                 </div>
               </div>
@@ -238,7 +409,6 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
           </section>
         )}
 
-        {/* CATEGORIAS */}
         <section className="mb-7">
           <div className="mb-4">
             <h3 className="text-xl font-black text-neutral-900">Categorias</h3>
@@ -247,40 +417,36 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
             </p>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-4">
-            {Object.entries(productsByCategory).map(([category, items]) => {
-              const isActive = selectedCategory === category;
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleCategoryDragEnd}
+          >
+            <SortableContext
+              items={orderedCategories}
+              strategy={horizontalListSortingStrategy}
+            >
+              <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-4">
+                {orderedCategories.map((category) => {
+                  const items = orderedProductsByCategory[category] || [];
+                  const isActive = selectedCategory === category;
 
-              return (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`flex w-[92px] min-w-[92px] flex-col items-center gap-2 rounded-[22px] bg-white p-2 transition sm:w-[104px] sm:min-w-[104px] sm:rounded-[26px] sm:p-[10px] ${
-                    isActive
-                      ? "border-2 border-orange-500 shadow-[0_18px_34px_rgba(249,115,22,0.16)]"
-                      : "border border-neutral-200 shadow-[0_10px_22px_rgba(15,23,42,0.04)] hover:-translate-y-[2px] hover:border-orange-300"
-                  }`}
-                >
-                  <img
-                    src={items[0].image.url}
-                    alt={category}
-                    className="h-[68px] w-[68px] rounded-[18px] object-cover sm:h-[76px] sm:w-[76px] sm:rounded-[22px]"
-                  />
-
-                  <span
-                    className={`block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-bold leading-4 sm:text-[13px] ${
-                      isActive ? "text-orange-600" : "text-neutral-700"
-                    }`}
-                  >
-                    {category}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  return (
+                    <SortableCategoryCard
+                      key={category}
+                      category={category}
+                      image={items[0].image.url}
+                      isActive={isActive}
+                      onClick={() => setSelectedCategory(category)}
+                      sortable={isAdmin}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         </section>
 
-        {/* PRODUTOS */}
         <section>
           {filteredProducts.length === 0 ? (
             <div className="flex min-h-[32vh] items-center justify-center rounded-[24px] border border-dashed border-orange-300 bg-orange-50 px-6 py-10 text-center text-base font-extrabold text-orange-700 sm:min-h-[42vh] sm:text-xl">
@@ -305,17 +471,28 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                 </span>
               </div>
 
-              <ProductList
-                products={filteredProducts}
-                isAdmin={adm === "admin"}
-                onSelect={setSelectedProduct}
-              />
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleProductDragEnd}
+              >
+                <SortableContext
+                  items={currentProducts.map((product) => product._id)}
+                  strategy={rectSortingStrategy}
+                >
+                  <ProductList
+                    products={filteredProducts}
+                    isAdmin={isAdmin}
+                    onSelect={setSelectedProduct}
+                    sortable={isAdmin}
+                  />
+                </SortableContext>
+              </DndContext>
             </>
           )}
         </section>
       </div>
 
-      {/* MODAL */}
       {selectedProduct && (
         <div
           onClick={() => setSelectedProduct(null)}
