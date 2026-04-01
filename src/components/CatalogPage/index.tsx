@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { PropsProduct } from "@/types/product";
+import { CategoryProps } from "@/types/category";
 import ProductList from "../ProductList";
 
 import { FiArrowLeft, FiSearch, FiEdit2, FiTrash2 } from "react-icons/fi";
@@ -33,6 +34,7 @@ import {
   saveCategoryOrder,
   saveProductOrder,
   CatalogConfigResponse,
+  getCategory,
 } from "@/hooks/useClient";
 
 type Props = {
@@ -49,12 +51,14 @@ function SortableCategoryCard({
   isActive,
   onClick,
   sortable,
+  onEdit,
 }: {
   category: string;
   image: string;
   isActive: boolean;
   onClick: () => void;
   sortable: boolean;
+  onEdit?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
@@ -70,33 +74,48 @@ function SortableCategoryCard({
     : undefined;
 
   return (
-    <button
-      ref={setNodeRef}
-      style={style}
-      type="button"
-      onClick={onClick}
-      {...(sortable ? attributes : {})}
-      {...(sortable ? listeners : {})}
-      className={`flex w-[92px] min-w-[92px] flex-col items-center gap-2 rounded-[22px] bg-white p-2 transition sm:w-[104px] sm:min-w-[104px] sm:rounded-[26px] sm:p-[10px] ${
-        isActive
-          ? "border-2 border-orange-500 shadow-[0_18px_34px_rgba(249,115,22,0.16)]"
-          : "border border-neutral-200 shadow-[0_10px_22px_rgba(15,23,42,0.04)] hover:-translate-y-[2px] hover:border-orange-300"
-      } ${sortable ? "cursor-grab active:cursor-grabbing touch-none" : ""}`}
-    >
-      <img
-        src={image}
-        alt={category}
-        className="h-[68px] w-[68px] rounded-[18px] object-cover sm:h-[76px] sm:w-[76px] sm:rounded-[22px]"
-      />
+    <div className="relative">
+      {onEdit && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-md transition hover:bg-orange-50"
+        >
+          <FiEdit2 size={12} className="text-orange-600" />
+        </button>
+      )}
 
-      <span
-        className={`block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-bold leading-4 sm:text-[13px] ${
-          isActive ? "text-orange-600" : "text-neutral-700"
-        }`}
+      <button
+        ref={setNodeRef}
+        style={style}
+        type="button"
+        onClick={onClick}
+        {...(sortable ? attributes : {})}
+        {...(sortable ? listeners : {})}
+        className={`flex w-[92px] min-w-[92px] flex-col items-center gap-2 rounded-[22px] bg-white p-2 transition sm:w-[104px] sm:min-w-[104px] sm:rounded-[26px] sm:p-[10px] ${
+          isActive
+            ? "border-2 border-orange-500 shadow-[0_18px_34px_rgba(249,115,22,0.16)]"
+            : "border border-neutral-200 shadow-[0_10px_22px_rgba(15,23,42,0.04)] hover:-translate-y-[2px] hover:border-orange-300"
+        } ${sortable ? "cursor-grab active:cursor-grabbing touch-none" : ""}`}
       >
-        {category}
-      </span>
-    </button>
+        <img
+          src={image}
+          alt={category}
+          className="h-[68px] w-[68px] rounded-[18px] object-cover sm:h-[76px] sm:w-[76px] sm:rounded-[22px]"
+        />
+
+        <span
+          className={`block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-bold leading-4 sm:text-[13px] ${
+            isActive ? "text-orange-600" : "text-neutral-700"
+          }`}
+        >
+          {category}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -127,6 +146,11 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     enabled: isAdmin,
   });
 
+  const { data: dataCategory } = useQuery<CategoryProps[]>({
+    queryKey: ["Category"],
+    queryFn: getCategory,
+  });
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -154,6 +178,18 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     () => Object.keys(productsByCategory),
     [productsByCategory],
   );
+
+  const categoryMap = useMemo(() => {
+    if (!dataCategory?.length) return {};
+
+    return dataCategory.reduce(
+      (acc, item) => {
+        acc[item.category] = item;
+        return acc;
+      },
+      {} as Record<string, CategoryProps>,
+    );
+  }, [dataCategory]);
 
   useEffect(() => {
     const backendCategoryOrder = configData?.categoryOrder || [];
@@ -229,14 +265,20 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
       ? orderedProductsByCategory[selectedCategory]
       : [];
 
-  const filteredProducts = currentProducts.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredProducts = currentProducts.filter((p) => {
+    if (!p || typeof p.name !== "string") return false;
+    return p.name.toLowerCase().includes(search.toLowerCase());
+  });
 
-  const bannerProduct =
-    selectedCategory && orderedProductsByCategory[selectedCategory]?.length
-      ? orderedProductsByCategory[selectedCategory][0]
-      : null;
+  const selectedCategoryData = selectedCategory
+    ? categoryMap[selectedCategory]
+    : null;
+
+  const bannerImage =
+    selectedCategoryData?.image?.url ||
+    (selectedCategory && orderedProductsByCategory[selectedCategory]?.length
+      ? orderedProductsByCategory[selectedCategory][0].image.url
+      : null);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Tem certeza que deseja excluir este produto?")) return;
@@ -248,6 +290,15 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
 
   const handleUpdate = (product: PropsProduct) => {
     router.push(`${pathname}/formProduct?id=${product._id}`);
+  };
+
+  const handleCategoryEdit = (category: string) => {
+    const categoryData = categoryMap[category];
+    if (!categoryData) return;
+
+    router.push(
+      `${pathname}/formProduct?categoryId=${categoryData._id}&mode=update`,
+    );
   };
 
   const handleCategoryDragEnd = async (event: DragEndEvent) => {
@@ -318,16 +369,6 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                 Voltar
               </button>
             )}
-
-            <div>
-              <h1 className="text-2xl font-black leading-tight text-neutral-900 sm:text-3xl">
-                Catálogo
-              </h1>
-              <p className="mt-1 text-sm leading-6 text-neutral-500 sm:text-[15px]">
-                Explore as categorias e encontre os produtos com mais
-                facilidade.
-              </p>
-            </div>
           </div>
 
           <div className="flex w-full items-center gap-3 md:w-auto">
@@ -350,12 +391,12 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
           </div>
         </div>
 
-        {bannerProduct && (
+        {bannerImage && (
           <section className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)] lg:gap-5">
             <div className="relative min-h-[230px] overflow-hidden rounded-[22px] border border-orange-200 bg-neutral-900 shadow-[0_24px_60px_rgba(249,115,22,0.12)] sm:min-h-[280px] sm:rounded-[26px] lg:min-h-[360px] lg:rounded-[30px]">
               <div
                 className="absolute inset-0 scale-[1.04] bg-cover bg-center"
-                style={{ backgroundImage: `url(${bannerProduct.image.url})` }}
+                style={{ backgroundImage: `url(${bannerImage})` }}
               />
               <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,24,39,0.72)_0%,rgba(17,24,39,0.32)_45%,rgba(17,24,39,0.1)_100%),linear-gradient(180deg,rgba(17,24,39,0.08)_0%,rgba(17,24,39,0.3)_100%)]" />
 
@@ -374,38 +415,6 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                 </p>
               </div>
             </div>
-
-            <aside className="flex flex-col justify-between gap-4 rounded-2xl border border-orange-100 bg-white p-4 shadow-sm sm:gap-5 sm:rounded-[26px] sm:p-6 lg:rounded-[30px] lg:p-7">
-              <div>
-                <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-600 sm:text-xs">
-                  Catálogo moderno
-                </span>
-
-                <h2 className="mt-3 text-xl font-black leading-tight text-neutral-900 sm:mt-4 sm:text-2xl lg:text-[1.7rem]">
-                  Uma vitrine mais elegante para seus produtos
-                </h2>
-
-                <p className="mt-3 text-sm leading-6 text-neutral-600 sm:text-[15px] sm:leading-7">
-                  Selecione uma categoria, pesquise por nome e encontre os itens
-                  com uma apresentação mais clara tanto no celular quanto no
-                  desktop.
-                </p>
-              </div>
-
-              <div className="grid gap-2.5 sm:gap-3">
-                <div className="rounded-xl border border-orange-100 bg-[#fffaf5] px-3 py-3 text-sm leading-5 text-[#7c2d12] sm:rounded-2xl sm:px-4">
-                  Navegação mais intuitiva entre categorias.
-                </div>
-
-                <div className="rounded-xl border border-orange-100 bg-[#fffaf5] px-3 py-3 text-sm leading-5 text-[#7c2d12] sm:rounded-2xl sm:px-4">
-                  Busca rápida para localizar produtos com facilidade.
-                </div>
-
-                <div className="rounded-xl border border-orange-100 bg-[#fffaf5] px-3 py-3 text-sm leading-5 text-[#7c2d12] sm:rounded-2xl sm:px-4">
-                  Estrutura responsiva com aparência mais premium.
-                </div>
-              </div>
-            </aside>
           </section>
         )}
 
@@ -431,14 +440,20 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                   const items = orderedProductsByCategory[category] || [];
                   const isActive = selectedCategory === category;
 
+                  const categoryImage =
+                    categoryMap[category]?.image?.url ||
+                    items[0]?.image?.url ||
+                    "";
+
                   return (
                     <SortableCategoryCard
                       key={category}
                       category={category}
-                      image={items[0].image.url}
+                      image={categoryImage}
                       isActive={isActive}
                       onClick={() => setSelectedCategory(category)}
                       sortable={isAdmin}
+                      onEdit={isAdmin ? () => handleCategoryEdit(category) : undefined}
                     />
                   );
                 })}
@@ -460,8 +475,8 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                     {selectedCategory}
                   </h2>
                   <p className="mt-2 max-w-[760px] text-sm leading-6 text-neutral-500 sm:text-[15px] sm:leading-7">
-                    Confira os itens disponíveis nesta categoria e selecione o
-                    que melhor combina com sua necessidade.
+                    Explore os melhores itens do mercado com alta qualidade e
+                    preços imperdíveis.
                   </p>
                 </div>
 

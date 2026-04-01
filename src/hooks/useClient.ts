@@ -1,4 +1,5 @@
 import axios from "@/lib/axios";
+import { CategoryProps } from "@/types/category";
 
 export type CatalogConfigResponse = {
   key: string;
@@ -17,6 +18,12 @@ export const getBanner = async () => {
   } catch (error) {
     console.error("Error no servidor:", error);
   }
+};
+
+/* Lista de categorias */
+export const getCategory = async (): Promise<CategoryProps[]> => {
+  const response = await axios.get("/category/get-categories");
+  return response.data;
 };
 
 /* salvar lista de produtos */
