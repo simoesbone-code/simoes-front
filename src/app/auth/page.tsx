@@ -113,11 +113,10 @@ export default function LoginForm() {
 
                   <input
                     id="email"
-                    type="email"
+                    type="text"
                     name="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
                     placeholder="Digite seu e-mail"
                     className="w-full bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 sm:text-[15px]"
                   />
