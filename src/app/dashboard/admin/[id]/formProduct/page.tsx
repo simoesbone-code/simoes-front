@@ -203,7 +203,7 @@ export default function ProductForm() {
   async function handleSubmitCategory(e: FormEvent) {
     e.preventDefault();
 
-    if (!categoryForm.category.trim()) {
+    if (!isUpdatingCategory && !categoryForm.category.trim()) {
       alert("Digite o nome da categoria");
       return;
     }
@@ -213,14 +213,24 @@ export default function ProductForm() {
       return;
     }
 
+    if (isUpdatingCategory && !categoryImageFile) {
+      alert("Selecione uma nova imagem para atualizar a categoria");
+      return;
+    }
+
     try {
       setIsSubmittingCategory(true);
       setProgress(0);
 
       const formData = new FormData();
 
-      formData.append("category", categoryForm.category.trim());
+      // Só envia o nome no cadastro.
+      // Na atualização, o nome da categoria NÃO é enviado.
+      if (!isUpdatingCategory) {
+        formData.append("category", categoryForm.category.trim());
+      }
 
+      // Na atualização, apenas a imagem é enviada
       if (categoryImageFile) {
         formData.append("image", categoryImageFile);
       }
@@ -238,7 +248,7 @@ export default function ProductForm() {
           },
         });
 
-        alert("Categoria atualizada com sucesso");
+        alert("Imagem da categoria atualizada com sucesso");
       } else {
         await axios.post("/category/create-category", formData, {
           headers: { "Content-Type": "multipart/form-data" },
@@ -302,20 +312,30 @@ export default function ProductForm() {
   useEffect(() => {
     if (!isUpdatingCategory || !categoryId || !dataCategory?.length) return;
 
-    const categoryDataToUpdate = dataCategory.find(
-      (item) => item._id === categoryId,
-    );
+    async function loadCategoryData() {
+      try {
+        setIsLoadingCategoryData(true);
 
-    if (!categoryDataToUpdate) return;
+        const categoryDataToUpdate = dataCategory?.find(
+          (item) => item._id === categoryId,
+        );
 
-    setMode("category");
+        if (!categoryDataToUpdate) return;
 
-    setCategoryForm({
-      category: categoryDataToUpdate.category || "",
-    });
+        setMode("category");
 
-    setCategoryImagePreview(categoryDataToUpdate.image?.url || null);
-    setCategoryImageFile(null);
+        setCategoryForm({
+          category: categoryDataToUpdate.category || "",
+        });
+
+        setCategoryImagePreview(categoryDataToUpdate.image?.url || null);
+        setCategoryImageFile(null);
+      } finally {
+        setIsLoadingCategoryData(false);
+      }
+    }
+
+    loadCategoryData();
   }, [isUpdatingCategory, categoryId, dataCategory]);
 
   const cropImageSource =
@@ -355,7 +375,7 @@ export default function ProductForm() {
               mode === "product"
                 ? "bg-orange-500 text-white shadow-sm"
                 : "border border-orange-200 bg-white text-orange-600 hover:bg-orange-50"
-            } ${isUpdatingCategory ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${isUpdatingCategory ? "cursor-not-allowed opacity-50" : ""}`}
           >
             <FiBox size={18} />
             Produto
@@ -505,8 +525,8 @@ export default function ProductForm() {
           >
             {isUpdatingCategory && (
               <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-700">
-                Você está atualizando uma categoria existente. Os dados atuais
-                já foram carregados para facilitar a edição.
+                Você está atualizando uma categoria existente. Apenas a imagem
+                pode ser alterada.
               </div>
             )}
 
@@ -560,18 +580,26 @@ export default function ProductForm() {
                   <input
                     type="text"
                     value={categoryForm.category}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      if (isUpdatingCategory) return;
+
                       setCategoryForm((prev) => ({
                         ...prev,
                         category: e.target.value,
-                      }))
-                    }
+                      }));
+                    }}
+                    disabled={isUpdatingCategory}
+                    readOnly={isUpdatingCategory}
                     placeholder={
                       isUpdatingCategory
-                        ? "Atualize o nome da categoria"
+                        ? "O nome da categoria não pode ser alterado"
                         : "Digite o nome da nova categoria"
                     }
-                    className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                    className={`mt-1 w-full rounded-xl border px-4 py-3 ${
+                      isUpdatingCategory
+                        ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-500"
+                        : "border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                    }`}
                   />
                 </div>
 
@@ -582,7 +610,7 @@ export default function ProductForm() {
                 >
                   <FiCheck />
                   {isUpdatingCategory
-                    ? "Salvar atualização da categoria"
+                    ? "Atualizar imagem da categoria"
                     : "Cadastrar categoria"}
                 </button>
 
