@@ -9,7 +9,13 @@ import { PropsProduct } from "@/types/product";
 import { CategoryProps } from "@/types/category";
 import ProductList from "../ProductList";
 
-import { FiArrowLeft, FiSearch, FiEdit2, FiTrash2 } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiSearch,
+  FiEdit2,
+  FiTrash2,
+  FiMove,
+} from "react-icons/fi";
 import PageLoading from "../PageLoading/page";
 
 import {
@@ -52,6 +58,7 @@ function SortableCategoryCard({
   onClick,
   sortable,
   onEdit,
+  onDelete,
 }: {
   category: string;
   image: string;
@@ -59,6 +66,7 @@ function SortableCategoryCard({
   onClick: () => void;
   sortable: boolean;
   onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
@@ -74,32 +82,43 @@ function SortableCategoryCard({
     : undefined;
 
   return (
-    <div className="relative">
-      {onEdit && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-md transition hover:bg-orange-50"
-        >
-          <FiEdit2 size={12} className="text-orange-600" />
-        </button>
-      )}
+    <div ref={setNodeRef} style={style} className="relative">
+      <div className="absolute right-1 top-1 z-10 flex items-center gap-1">
+        {onEdit && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-md transition hover:bg-orange-50"
+          >
+            <FiEdit2 size={12} className="text-orange-600" />
+          </button>
+        )}
+
+        {onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 shadow-md transition hover:bg-red-50"
+          >
+            <FiTrash2 size={12} className="text-red-600" />
+          </button>
+        )}
+      </div>
 
       <button
-        ref={setNodeRef}
-        style={style}
         type="button"
         onClick={onClick}
-        {...(sortable ? attributes : {})}
-        {...(sortable ? listeners : {})}
-        className={`flex w-[92px] min-w-[92px] flex-col items-center gap-2 rounded-[22px] bg-white p-2 transition sm:w-[104px] sm:min-w-[104px] sm:rounded-[26px] sm:p-[10px] ${
+        className={`flex w-[92px] min-w-[92px] flex-col items-center gap-2 rounded-[22px] bg-white p-2 pb-3 transition sm:w-[104px] sm:min-w-[104px] sm:rounded-[26px] sm:p-[10px] sm:pb-3 ${
           isActive
             ? "border-2 border-orange-500 shadow-[0_18px_34px_rgba(249,115,22,0.16)]"
             : "border border-neutral-200 shadow-[0_10px_22px_rgba(15,23,42,0.04)] hover:-translate-y-[2px] hover:border-orange-300"
-        } ${sortable ? "cursor-grab active:cursor-grabbing touch-none" : ""}`}
+        }`}
       >
         <img
           src={image}
@@ -114,6 +133,17 @@ function SortableCategoryCard({
         >
           {category}
         </span>
+
+        {sortable && (
+          <div
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-1 inline-flex h-7 w-[44px] items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-500 shadow-sm touch-none active:cursor-grabbing"
+          >
+            <FiMove size={14} />
+          </div>
+        )}
       </button>
     </div>
   );
@@ -146,7 +176,9 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     enabled: isAdmin,
   });
 
-  const { data: dataCategory } = useQuery<CategoryProps[]>({
+  const { data: dataCategory, refetch: refetchCategories } = useQuery<
+    CategoryProps[]
+  >({
     queryKey: ["Category"],
     queryFn: getCategory,
   });
@@ -174,10 +206,14 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     }, {} as ProductsByCategory);
   }, [products]);
 
-  const categoriesFromData = useMemo(
-    () => Object.keys(productsByCategory),
-    [productsByCategory],
-  );
+  const categoriesFromData = useMemo(() => {
+    const productCategories = Object.keys(productsByCategory);
+    const registeredCategories = (dataCategory || []).map(
+      (item) => item.category,
+    );
+
+    return [...new Set([...registeredCategories, ...productCategories])];
+  }, [productsByCategory, dataCategory]);
 
   const categoryMap = useMemo(() => {
     if (!dataCategory?.length) return {};
@@ -228,10 +264,8 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
   }, [categoriesFromData, productsByCategory, configData]);
 
   const orderedCategories = useMemo(() => {
-    return categoryOrder.filter(
-      (category) => productsByCategory[category]?.length,
-    );
-  }, [categoryOrder, productsByCategory]);
+    return categoryOrder;
+  }, [categoryOrder]);
 
   const orderedProductsByCategory = useMemo(() => {
     const result: ProductsByCategory = {};
@@ -277,15 +311,20 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
   const bannerImage =
     selectedCategoryData?.image?.url ||
     (selectedCategory && orderedProductsByCategory[selectedCategory]?.length
-      ? orderedProductsByCategory[selectedCategory][0].image.url
+      ? orderedProductsByCategory[selectedCategory][0]?.image?.url
       : null);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Tem certeza que deseja excluir este produto?")) return;
 
-    await axios.delete(`product/delete-product/${id}`);
-    await refetch();
-    setSelectedProduct(null);
+    try {
+      await axios.delete(`product/delete-product/${id}`);
+      await refetch();
+      setSelectedProduct(null);
+    } catch (error) {
+      console.error("Erro ao excluir produto:", error);
+      window.alert("Erro ao excluir produto.");
+    }
   };
 
   const handleUpdate = (product: PropsProduct) => {
@@ -299,6 +338,48 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     router.push(
       `${pathname}/formProduct?categoryId=${categoryData._id}&mode=update`,
     );
+  };
+
+  const handleCategoryDelete = async (category: string) => {
+    const categoryData = categoryMap[category];
+    if (!categoryData) return;
+
+    const totalProductsInCategory = productsByCategory[category]?.length || 0;
+
+    if (totalProductsInCategory > 0) {
+      window.alert(
+        `Não é possível excluir a categoria "${category}" porque existem ${totalProductsInCategory} produto(s) cadastrados nela.`,
+      );
+      return;
+    }
+
+    const confirmDelete = window.confirm(
+      `Tem certeza que deseja excluir a categoria "${category}"?`,
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await axios.delete(`/category/delete-category/${categoryData._id}`);
+
+      const nextCategories = orderedCategories.filter((item) => item !== category);
+      setCategoryOrder(nextCategories);
+
+      setProductOrderByCategory((prev) => {
+        const updated = { ...prev };
+        delete updated[category];
+        return updated;
+      });
+
+      if (selectedCategory === category) {
+        setSelectedCategory(nextCategories[0] || null);
+      }
+
+      await Promise.all([refetch(), refetchCategories()]);
+    } catch (error) {
+      console.error("Erro ao excluir categoria:", error);
+      window.alert("Erro ao excluir categoria.");
+    }
   };
 
   const handleCategoryDragEnd = async (event: DragEndEvent) => {
@@ -443,7 +524,7 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                   const categoryImage =
                     categoryMap[category]?.image?.url ||
                     items[0]?.image?.url ||
-                    "";
+                    "/images/sem-imagem.png";
 
                   return (
                     <SortableCategoryCard
@@ -453,7 +534,14 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                       isActive={isActive}
                       onClick={() => setSelectedCategory(category)}
                       sortable={isAdmin}
-                      onEdit={isAdmin ? () => handleCategoryEdit(category) : undefined}
+                      onEdit={
+                        isAdmin ? () => handleCategoryEdit(category) : undefined
+                      }
+                      onDelete={
+                        isAdmin
+                          ? () => handleCategoryDelete(category)
+                          : undefined
+                      }
                     />
                   );
                 })}

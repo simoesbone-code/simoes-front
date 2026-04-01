@@ -1,140 +1,128 @@
 "use client";
 
 import { PropsProduct } from "@/types/product";
+import { FiMove } from "react-icons/fi";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import PageLoading from "../PageLoading/page";
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-type Props = {
-  products: PropsProduct[] | undefined;
-  isAdmin: boolean;
+type ProductListProps = {
+  products: PropsProduct[];
+  isAdmin?: boolean;
   onSelect?: (product: PropsProduct) => void;
   sortable?: boolean;
 };
 
-const formatPrice = (value: number | string | undefined) => {
-  const number = Number(value ?? 0);
+function formatCurrency(value: number | string | undefined) {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(String(value).replace(",", "."))
+        : 0;
 
-  return new Intl.NumberFormat("pt-BR", {
+  if (Number.isNaN(numericValue)) return "R$ 0,00";
+
+  return numericValue.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(number);
-};
+  });
+}
 
-type ProductCardProps = {
-  item: PropsProduct;
-  isAdmin: boolean;
-  onSelect?: (product: PropsProduct) => void;
-  onNavigate: (id: string) => void;
-  sortable?: boolean;
-};
-
-function ProductCard({
-  item,
+function SortableProductCard({
+  product,
   isAdmin,
   onSelect,
-  onNavigate,
-  sortable = false,
-}: ProductCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: item._id,
-    disabled: !sortable,
-  });
+  sortable,
+}: {
+  product: PropsProduct;
+  isAdmin?: boolean;
+  onSelect?: (product: PropsProduct) => void;
+  sortable?: boolean;
+}) {
+  const router = useRouter();
+
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({
+      id: product._id,
+      disabled: !sortable,
+    });
 
   const style = sortable
     ? {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.7 : 1,
       }
     : undefined;
 
   const handleCardClick = () => {
-    if (isAdmin) {
-      onSelect?.(item);
+    if (isAdmin && onSelect) {
+      onSelect(product);
       return;
     }
 
-    onNavigate(item._id);
+    router.push(`/catalog/${product._id}`);
   };
 
+  const imageUrl =
+    product?.image?.url ||
+    (Array.isArray((product as any)?.images) && (product as any)?.images[0]?.url) ||
+    "/images/sem-imagem.png";
+
+  const price =
+    (product as any)?.priceUnit ??
+    (product as any)?.salePrice ??
+    (product as any)?.price ??
+    0;
+
   return (
-    <button
-      ref={setNodeRef}
-      style={style}
-      type="button"
-      onClick={handleCardClick}
-      {...(sortable ? attributes : {})}
-      {...(sortable ? listeners : {})}
-      className={`
-        group overflow-hidden rounded-[20px] border border-orange-100 bg-white text-left
-        shadow-[0_10px_24px_rgba(15,23,42,0.05)]
-        transition-all duration-300
-        hover:-translate-y-1 hover:shadow-[0_18px_36px_rgba(249,115,22,0.12)]
-        focus:outline-none focus:ring-4 focus:ring-orange-100
-        ${sortable ? "cursor-grab active:cursor-grabbing touch-none" : ""}
-      `}
-    >
-      <div className="relative aspect-[1/1] overflow-hidden bg-[#fff7ed]">
-        <img
-          src={item.image.url}
-          alt={item.name}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
-        />
-
-        <div className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-orange-600 shadow-sm sm:left-3 sm:top-3">
-          {isAdmin ? "Admin" : "Produto"}
+    <div ref={setNodeRef} style={style} className="h-full">
+      <div
+        onClick={handleCardClick}
+        className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-[24px] border border-orange-100 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(249,115,22,0.14)]"
+      >
+        <div className="relative aspect-square w-full overflow-hidden bg-[#fff7ed]">
+          <img
+            src={imageUrl}
+            alt={product?.name || "Produto"}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+          />
         </div>
-      </div>
 
-      <div className="p-3 sm:p-4">
-        <h3 className="line-clamp-2 min-h-[42px] text-sm font-extrabold leading-5 text-neutral-900 sm:min-h-[48px] sm:text-[15px] sm:leading-6">
-          {item.name}
-        </h3>
+        <div className="flex flex-1 flex-col p-3 sm:p-4">
+          <h3 className="line-clamp-2 min-h-[48px] text-[15px] font-extrabold leading-6 text-neutral-900 sm:text-base">
+            {product?.name}
+          </h3>
 
-        <div className="mt-3 grid gap-2">
-          <div className="rounded-2xl border border-orange-100 bg-[#fffaf5] px-3 py-2.5 sm:px-4 sm:py-3">
-            <span className="block text-[11px] font-medium text-neutral-500 sm:text-xs">
-              Unidade
-            </span>
-            <span className="mt-1 block text-sm font-extrabold text-orange-600 sm:text-base">
-              {formatPrice(item.priceUnit)}
-            </span>
-          </div>
+          <p className="mt-2 text-lg font-black text-orange-600 sm:text-[1.15rem]">
+            {formatCurrency(price)}
+          </p>
 
-          <div className="rounded-2xl border border-orange-100 bg-[#fffaf5] px-3 py-2.5 sm:px-4 sm:py-3">
-            <span className="block text-[11px] font-medium text-neutral-500 sm:text-xs">
-              Atacado
+          {product?.category && (
+            <span className="mt-2 inline-flex w-fit rounded-full bg-orange-50 px-3 py-1 text-[11px] font-bold text-orange-700">
+              {product.category}
             </span>
-            <span className="mt-1 block text-sm font-extrabold text-orange-600 sm:text-base">
-              {formatPrice(item.priceWholesale)}
-            </span>
+          )}
+
+          <div className="mt-auto pt-4">
+            {sortable && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  {...attributes}
+                  {...listeners}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex h-8 w-12 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-500 shadow-sm touch-none active:cursor-grabbing"
+                >
+                  <FiMove size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
-
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-400 sm:text-[11px]">
-            {isAdmin ? "Gerenciar" : "Ver detalhes"}
-          </span>
-
-          <span className="rounded-full bg-orange-500 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition group-hover:bg-orange-600 sm:px-3">
-            {isAdmin ? "Ações" : "Abrir"}
-          </span>
-        </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -142,32 +130,19 @@ export default function ProductList({
   products,
   isAdmin,
   onSelect,
-  sortable = false,
-}: Props) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-
-  const handleNavigate = (id: string) => {
-    setLoading(true);
-    router.push(`/catalog/${id}`);
-  };
-
+  sortable,
+}: ProductListProps) {
   return (
-    <>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        {products?.map((item) => (
-          <ProductCard
-            key={item._id}
-            item={item}
-            isAdmin={isAdmin}
-            onSelect={onSelect}
-            onNavigate={handleNavigate}
-            sortable={sortable}
-          />
-        ))}
-      </div>
-
-      <PageLoading visible={loading} />
-    </>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+      {products.map((product) => (
+        <SortableProductCard
+          key={product._id}
+          product={product}
+          isAdmin={isAdmin}
+          onSelect={onSelect}
+          sortable={sortable}
+        />
+      ))}
+    </div>
   );
 }

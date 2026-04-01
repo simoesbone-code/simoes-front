@@ -27,7 +27,6 @@ export const getCategory = async (): Promise<CategoryProps[]> => {
 };
 
 /* salvar lista de produtos */
-
 export const getCatalogConfig = async (): Promise<CatalogConfigResponse> => {
   const response = await axios.get("/product/catalog-config");
   return response.data;
