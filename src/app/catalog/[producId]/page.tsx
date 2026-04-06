@@ -6,9 +6,15 @@ import { WhatsAppFloatingButton } from "@/components/WhatsAppFloatingButton";
 import { getProduct } from "@/hooks/useClient";
 import { PropsProduct } from "@/types/product";
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { FiArrowLeft, FiTag, FiShoppingBag } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiTag,
+  FiShoppingBag,
+  FiHash,
+  FiGrid,
+} from "react-icons/fi";
 
 export default function ProductPage() {
   const { data: dataProduct } = useQuery<PropsProduct[]>({
@@ -17,18 +23,23 @@ export default function ProductPage() {
   });
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { producId } = useParams();
   const [loading, setLoading] = useState(false);
 
   const product = dataProduct?.find((p) => p._id === producId);
 
-  const formatPrice = (value: number | string) => {
+  const productCode = searchParams.get("code") || "#0001";
+  const productCategory =
+    searchParams.get("category") || product?.category || "Sem categoria";
+
+  const formatPrice = (value: number | string | undefined) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(Number(value));
+    }).format(Number(value || 0));
   };
 
   if (!product) {
@@ -46,11 +57,16 @@ export default function ProductPage() {
     );
   }
 
+  const whatsappMessage = `Olá! Vim pelo site e gostaria de saber mais sobre este produto:
+
+Nome: ${product.name}
+Código: ${productCode}
+Categoria: ${productCategory}`;
+
   return (
     <>
       <main className="min-h-screen bg-[#fffaf5] px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
         <div className="mx-auto max-w-6xl">
-          {/* TOPO */}
           <div className="mb-5 flex items-center justify-between gap-4">
             <button
               onClick={() => {
@@ -64,9 +80,7 @@ export default function ProductPage() {
             </button>
           </div>
 
-          {/* CONTEÚDO */}
           <section className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:gap-8">
-            {/* IMAGEM */}
             <div className="overflow-hidden rounded-[28px] border border-orange-100 bg-white shadow-sm">
               <div className="relative aspect-[1/1] w-full overflow-hidden bg-[#fff7ed]">
                 <img
@@ -79,10 +93,14 @@ export default function ProductPage() {
                   <FiShoppingBag size={12} />
                   Produto
                 </div>
+
+                <div className="absolute right-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-orange-400/70 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white shadow-sm backdrop-blur-sm">
+                  <FiHash size={12} />
+                  {productCode}
+                </div>
               </div>
             </div>
 
-            {/* INFORMAÇÕES */}
             <div className="flex flex-col justify-between rounded-[28px] border border-orange-100 bg-white p-5 shadow-sm sm:p-6 lg:p-8">
               <div>
                 <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-600 sm:text-xs">
@@ -98,6 +116,18 @@ export default function ProductPage() {
                   atacado. Para mais informações, fale diretamente pelo
                   WhatsApp.
                 </p>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2 text-xs font-extrabold text-orange-700">
+                    <FiHash size={14} />
+                    Código: {productCode}
+                  </span>
+
+                  <span className="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-4 py-2 text-xs font-extrabold text-neutral-700">
+                    <FiGrid size={14} />
+                    Categoria: {productCategory}
+                  </span>
+                </div>
 
                 <div className="mt-6 grid gap-3">
                   <div className="rounded-[22px] border border-orange-100 bg-[#fffaf5] p-4 sm:p-5">
@@ -124,7 +154,6 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {/* BLOCO DECORATIVO / CTA */}
               <div className="mt-6 overflow-hidden rounded-[24px] border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -150,7 +179,7 @@ export default function ProductPage() {
 
         <WhatsAppFloatingButton
           phone="5583998033753"
-          message={`Olá! Vim pelo site e gostaria de saber mais sobre o produto "${product.name}".`}
+          message={whatsappMessage}
         />
 
         <PageLoading visible={loading} />
