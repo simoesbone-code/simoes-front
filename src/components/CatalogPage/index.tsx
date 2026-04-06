@@ -51,6 +51,10 @@ type Props = {
 
 type ProductsByCategory = Record<string, PropsProduct[]>;
 
+function formatProductCode(value: number) {
+  return `#${String(value).padStart(4, "0")}`;
+}
+
 function SortableCategoryCard({
   category,
   image,
@@ -298,6 +302,16 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     selectedCategory && orderedProductsByCategory[selectedCategory]
       ? orderedProductsByCategory[selectedCategory]
       : [];
+
+  const currentProductNumbers = useMemo(() => {
+    return currentProducts.reduce(
+      (acc, product, index) => {
+        acc[product._id] = index + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+  }, [currentProducts]);
 
   const filteredProducts = currentProducts.filter((p) => {
     if (!p || typeof p.name !== "string") return false;
@@ -588,6 +602,7 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                     isAdmin={isAdmin}
                     onSelect={setSelectedProduct}
                     sortable={isAdmin}
+                    productNumbers={currentProductNumbers}
                   />
                 </SortableContext>
               </DndContext>
@@ -605,9 +620,18 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-[380px] rounded-[24px] bg-white p-6 shadow-2xl"
           >
-            <h3 className="text-xl font-black leading-7 text-neutral-900">
+            <span className="inline-flex rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-extrabold text-neutral-700">
+              {selectedCategory
+                ? `${selectedCategory} • ${formatProductCode(
+                    currentProductNumbers[selectedProduct._id] || 1,
+                  )}`
+                : formatProductCode(currentProductNumbers[selectedProduct._id] || 1)}
+            </span>
+
+            <h3 className="mt-3 text-xl font-black leading-7 text-neutral-900">
               {selectedProduct.name}
             </h3>
+
             <p className="mt-2 text-sm leading-6 text-neutral-500">
               Escolha a ação que deseja realizar para este produto.
             </p>

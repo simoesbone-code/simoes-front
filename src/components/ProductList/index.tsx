@@ -12,6 +12,7 @@ type ProductListProps = {
   isAdmin?: boolean;
   onSelect?: (product: PropsProduct) => void;
   sortable?: boolean;
+  productNumbers?: Record<string, number>;
 };
 
 function formatCurrency(value: number | string | undefined) {
@@ -30,16 +31,22 @@ function formatCurrency(value: number | string | undefined) {
   });
 }
 
+function formatProductCode(value: number) {
+  return `#${String(value).padStart(4, "0")}`;
+}
+
 function SortableProductCard({
   product,
   isAdmin,
   onSelect,
   sortable,
+  productNumber,
 }: {
   product: PropsProduct;
   isAdmin?: boolean;
   onSelect?: (product: PropsProduct) => void;
   sortable?: boolean;
+  productNumber?: number;
 }) {
   const router = useRouter();
 
@@ -62,12 +69,24 @@ function SortableProductCard({
       return;
     }
 
-    router.push(`/catalog/${product._id}`);
+    const params = new URLSearchParams();
+
+    if (productNumber) {
+      params.set("code", formatProductCode(productNumber));
+    }
+
+    if (product?.category) {
+      params.set("category", product.category);
+    }
+
+    const query = params.toString();
+    router.push(`/catalog/${product._id}${query ? `?${query}` : ""}`);
   };
 
   const imageUrl =
     product?.image?.url ||
-    (Array.isArray((product as any)?.images) && (product as any)?.images[0]?.url) ||
+    (Array.isArray((product as any)?.images) &&
+      (product as any)?.images[0]?.url) ||
     "/images/sem-imagem.png";
 
   const price =
@@ -88,6 +107,12 @@ function SortableProductCard({
             alt={product?.name || "Produto"}
             className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
           />
+
+          {typeof productNumber === "number" && (
+            <span className="absolute left-3 top-3 inline-flex h-9 items-center justify-center rounded-full bg-black/75 px-3 text-xs font-extrabold tracking-[0.12em] text-white backdrop-blur-sm">
+              {formatProductCode(productNumber)}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-1 flex-col p-3 sm:p-4">
@@ -100,9 +125,17 @@ function SortableProductCard({
           </p>
 
           {product?.category && (
-            <span className="mt-2 inline-flex w-fit rounded-full bg-orange-50 px-3 py-1 text-[11px] font-bold text-orange-700">
-              {product.category}
-            </span>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex w-fit rounded-full bg-orange-50 px-3 py-1 text-[11px] font-bold text-orange-700">
+                {product.category}
+              </span>
+
+              {typeof productNumber === "number" && (
+                <span className="inline-flex w-fit rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-extrabold text-neutral-700">
+                  Código {formatProductCode(productNumber)}
+                </span>
+              )}
+            </div>
           )}
 
           <div className="mt-auto pt-4">
@@ -131,6 +164,7 @@ export default function ProductList({
   isAdmin,
   onSelect,
   sortable,
+  productNumbers = {},
 }: ProductListProps) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
@@ -141,6 +175,7 @@ export default function ProductList({
           isAdmin={isAdmin}
           onSelect={onSelect}
           sortable={sortable}
+          productNumber={productNumbers[product._id]}
         />
       ))}
     </div>
