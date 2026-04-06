@@ -104,7 +104,7 @@ export default function Home() {
       {/* 🔥 BANNER AJUSTADO */}
       <section className="w-full py-0 sm:px-6 sm:py-6 lg:px-8">
         <div className="w-full max-w-7xl mx-auto">
-          <div className="overflow-hidden sm:rounded-[30px] sm:border sm:border-orange-100 sm:bg-white sm:shadow-[0_22px_60px_rgba(249,115,22,0.08)]">
+          <div className="overflow-hidden sm:border sm:border-orange-100 sm:bg-white sm:shadow-[0_22px_60px_rgba(249,115,22,0.08)]">
             <div className="relative h-[220px] w-full sm:h-[360px] lg:h-[520px]">
               {isLoadingBanner ? (
                 <div className="h-full w-full animate-pulse bg-neutral-200" />
