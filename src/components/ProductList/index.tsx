@@ -109,7 +109,7 @@ function SortableProductCard({
           />
 
           {typeof productNumber === "number" && (
-            <span className="absolute left-3 top-3 inline-flex h-9 items-center justify-center rounded-full bg-black/75 px-3 text-xs font-extrabold tracking-[0.12em] text-white backdrop-blur-sm">
+            <span className="absolute left-3 top-3 inline-flex h-9 items-center justify-center rounded-full bg-orange-400/70 px-3 text-xs font-extrabold tracking-[0.12em] text-white backdrop-blur-sm">
               {formatProductCode(productNumber)}
             </span>
           )}
