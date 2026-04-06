@@ -315,7 +315,22 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
 
   const filteredProducts = currentProducts.filter((p) => {
     if (!p || typeof p.name !== "string") return false;
-    return p.name.toLowerCase().includes(search.toLowerCase());
+
+    const searchValue = search.toLowerCase().trim();
+
+    // 🔹 nome
+    const matchName = p.name.toLowerCase().includes(searchValue);
+
+    // 🔹 número do produto
+    const number = currentProductNumbers[p._id] || 0;
+    const formattedCode = formatProductCode(number); // #0001
+
+    const matchNumber =
+      String(number).includes(searchValue) || // 1, 2, 10...
+      formattedCode.toLowerCase().includes(searchValue) || // #0001
+      formattedCode.replace("#", "").includes(searchValue); // 0001
+
+    return matchName || matchNumber;
   });
 
   const selectedCategoryData = selectedCategory
@@ -376,7 +391,9 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     try {
       await axios.delete(`/category/delete-category/${categoryData._id}`);
 
-      const nextCategories = orderedCategories.filter((item) => item !== category);
+      const nextCategories = orderedCategories.filter(
+        (item) => item !== category,
+      );
       setCategoryOrder(nextCategories);
 
       setProductOrderByCategory((prev) => {
@@ -625,7 +642,9 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                 ? `${selectedCategory} • ${formatProductCode(
                     currentProductNumbers[selectedProduct._id] || 1,
                   )}`
-                : formatProductCode(currentProductNumbers[selectedProduct._id] || 1)}
+                : formatProductCode(
+                    currentProductNumbers[selectedProduct._id] || 1,
+                  )}
             </span>
 
             <h3 className="mt-3 text-xl font-black leading-7 text-neutral-900">
