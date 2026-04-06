@@ -15,11 +15,8 @@ import {
   FiArrowLeft,
   FiBox,
   FiGrid,
-<<<<<<< HEAD
-=======
   FiCamera,
   FiUpload,
->>>>>>> 7bfe970 (atualizacao de upload de imagem)
 } from "react-icons/fi";
 import { CategoryProps } from "@/types/category";
 
@@ -119,11 +116,8 @@ export default function ProductForm() {
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setIsCropping(true);
-<<<<<<< HEAD
-=======
 
     e.target.value = "";
->>>>>>> 7bfe970 (atualizacao de upload de imagem)
   }
 
   function handleRemoveImage(target: "product" | "category") {
@@ -234,19 +228,10 @@ export default function ProductForm() {
 
       const formData = new FormData();
 
-<<<<<<< HEAD
-      // Só envia o nome no cadastro.
-      // Na atualização, o nome da categoria NÃO é enviado.
-=======
->>>>>>> 7bfe970 (atualizacao de upload de imagem)
       if (!isUpdatingCategory) {
         formData.append("category", categoryForm.category.trim());
       }
 
-<<<<<<< HEAD
-      // Na atualização, apenas a imagem é enviada
-=======
->>>>>>> 7bfe970 (atualizacao de upload de imagem)
       if (categoryImageFile) {
         formData.append("image", categoryImageFile);
       }
@@ -362,10 +347,7 @@ export default function ProductForm() {
       <div className="mx-auto max-w-xl">
         <div className="mb-6 flex items-center gap-4">
           <button
-<<<<<<< HEAD
-=======
             type="button"
->>>>>>> 7bfe970 (atualizacao de upload de imagem)
             onClick={() => router.push(`/dashboard/admin/${id}`)}
             className="flex items-center gap-2 rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50"
           >
@@ -421,38 +403,6 @@ export default function ProductForm() {
             className="space-y-5 rounded-2xl border border-orange-100 bg-white p-6 shadow-sm"
           >
             {!imagePreview ? (
-<<<<<<< HEAD
-              <label className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 text-center">
-                <FiImage size={30} className="mb-2 text-orange-500" />
-
-                <span className="font-semibold text-neutral-800">
-                  Adicionar imagem
-                </span>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageChange(e, "product")}
-                  className="hidden"
-                />
-              </label>
-            ) : (
-              <div className="relative overflow-hidden rounded-xl">
-                <img
-                  src={imagePreview}
-                  className="aspect-square w-full object-cover"
-                  alt="Preview do produto"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => handleRemoveImage("product")}
-                  className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/70 px-3 py-1 text-xs text-white"
-                >
-                  <FiTrash2 size={14} />
-                  Remover
-                </button>
-=======
               <div className="space-y-3">
                 <label className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 px-4 text-center">
                   <FiImage size={30} className="mb-2 text-orange-500" />
@@ -541,7 +491,6 @@ export default function ProductForm() {
                     />
                   </label>
                 </div>
->>>>>>> 7bfe970 (atualizacao de upload de imagem)
               </div>
             )}
 
@@ -648,40 +597,6 @@ export default function ProductForm() {
             ) : (
               <>
                 {!categoryImagePreview ? (
-<<<<<<< HEAD
-                  <label className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 text-center">
-                    <FiImage size={30} className="mb-2 text-orange-500" />
-
-                    <span className="font-semibold text-neutral-800">
-                      {isUpdatingCategory
-                        ? "Adicionar nova imagem da categoria"
-                        : "Adicionar imagem da categoria"}
-                    </span>
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageChange(e, "category")}
-                      className="hidden"
-                    />
-                  </label>
-                ) : (
-                  <div className="relative overflow-hidden rounded-xl">
-                    <img
-                      src={categoryImagePreview}
-                      className="aspect-square w-full object-cover"
-                      alt="Preview da categoria"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage("category")}
-                      className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/70 px-3 py-1 text-xs text-white"
-                    >
-                      <FiTrash2 size={14} />
-                      Remover
-                    </button>
-=======
                   <div className="space-y-3">
                     <label className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 px-4 text-center">
                       <FiImage size={30} className="mb-2 text-orange-500" />
@@ -772,7 +687,6 @@ export default function ProductForm() {
                         />
                       </label>
                     </div>
->>>>>>> 7bfe970 (atualizacao de upload de imagem)
                   </div>
                 )}
 
@@ -833,11 +747,7 @@ export default function ProductForm() {
       </div>
 
       {isCropping && cropImageSource && (
-<<<<<<< HEAD
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-=======
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
->>>>>>> 7bfe970 (atualizacao de upload de imagem)
           <div className="w-full max-w-md overflow-hidden rounded-xl bg-white">
             <div className="relative h-80">
               <Cropper
