@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PropsProduct } from "@/types/product";
 import { CategoryProps } from "@/types/category";
 import ProductList from "../ProductList";
+import { generateOrderPDF } from "@/lib/generateOrderExcel";
 
 import {
   FiArrowLeft,
@@ -15,6 +16,12 @@ import {
   FiEdit2,
   FiTrash2,
   FiMove,
+  FiShoppingCart,
+  FiX,
+  FiMinus,
+  FiPlus,
+  FiFileText,
+  FiSend,
 } from "react-icons/fi";
 import PageLoading from "../PageLoading/page";
 
@@ -51,8 +58,100 @@ type Props = {
 
 type ProductsByCategory = Record<string, PropsProduct[]>;
 
+type CartItem = {
+  cartId: string;
+  productId: string;
+  productCode: string;
+  name: string;
+  category: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  priceType: "VAREJO" | "ATACADO";
+  wholesaleMinQty: number;
+  normalPrice: number;
+  wholesalePrice: number;
+};
+
+type CustomerData = {
+  name: string;
+  phone: string;
+  notes: string;
+};
+
+const OWNER_WHATSAPP = "5583999999999"; // Troque pelo WhatsApp do dono do site. Ex: 5583999999999
+
 function formatProductCode(value: number) {
   return `#${String(value).padStart(4, "0")}`;
+}
+
+function normalizeMoney(value: number | string | undefined | null) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const normalized = value
+      .replace(/\s/g, "")
+      .replace("R$", "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function formatCurrency(value: number | string | undefined | null) {
+  return normalizeMoney(value).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function getProductPrice(product: PropsProduct) {
+  return normalizeMoney(
+    (product as any)?.priceUnit ??
+      (product as any)?.salePrice ??
+      (product as any)?.price ??
+      (product as any)?.valor ??
+      0,
+  );
+}
+
+function getWholesalePrice(product: PropsProduct) {
+  return normalizeMoney(
+    (product as any)?.wholesalePrice ??
+      (product as any)?.priceWholesale ??
+      (product as any)?.atacadoPrice ??
+      (product as any)?.priceAtacado ??
+      (product as any)?.valorAtacado ??
+      0,
+  );
+}
+
+function getWholesaleMinQty(product: PropsProduct) {
+  const value =
+    (product as any)?.wholesaleMinQty ??
+    (product as any)?.minWholesaleQty ??
+    (product as any)?.minimumWholesaleQuantity ??
+    (product as any)?.quantidadeAtacado ??
+    (product as any)?.minAtacado ??
+    0;
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function getAppliedPrice(product: PropsProduct, quantity: number) {
+  const retailPrice = getProductPrice(product);
+  const wholesalePrice = getWholesalePrice(product);
+  const wholesaleMinQty = getWholesaleMinQty(product);
+  const hasWholesale = wholesalePrice > 0 && wholesaleMinQty > 0;
+  const isWholesale = hasWholesale && quantity >= wholesaleMinQty;
+
+  return {
+    unitPrice: isWholesale ? wholesalePrice : retailPrice,
+    priceType: isWholesale ? "ATACADO" : "VAREJO",
+    wholesaleMinQty,
+  } as const;
 }
 
 function SortableCategoryCard({
@@ -143,7 +242,7 @@ function SortableCategoryCard({
             {...attributes}
             {...listeners}
             onClick={(e) => e.stopPropagation()}
-            className="mt-1 inline-flex h-7 w-[44px] items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-500 shadow-sm touch-none active:cursor-grabbing"
+            className="mt-1 inline-flex h-7 w-[44px] touch-none items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-500 shadow-sm active:cursor-grabbing"
           >
             <FiMove size={14} />
           </div>
@@ -171,6 +270,22 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
   const [productOrderByCategory, setProductOrderByCategory] = useState<
     Record<string, string[]>
   >({});
+
+  const [cartAnimation, setCartAnimation] = useState(false);
+
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [quantityModalOpen, setQuantityModalOpen] = useState(false);
+  const [pendingProduct, setPendingProduct] = useState<{
+    product: PropsProduct;
+    productNumber?: number;
+  } | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [customer, setCustomer] = useState<CustomerData>({
+    name: "",
+    phone: "",
+    notes: "",
+  });
 
   const isAdmin = adm === "admin";
 
@@ -267,6 +382,15 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     });
   }, [categoriesFromData, productsByCategory, configData]);
 
+  useEffect(() => {
+    const savedCategory = sessionStorage.getItem("catalog-return-category");
+
+    if (!savedCategory) return;
+    if (!categoriesFromData.includes(savedCategory)) return;
+
+    setSelectedCategory(savedCategory);
+  }, [categoriesFromData]);
+
   const orderedCategories = useMemo(() => {
     return categoryOrder;
   }, [categoryOrder]);
@@ -318,20 +442,42 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
 
     const searchValue = search.toLowerCase().trim();
 
-    // 🔹 nome
     const matchName = p.name.toLowerCase().includes(searchValue);
-
-    // 🔹 número do produto
     const number = currentProductNumbers[p._id] || 0;
-    const formattedCode = formatProductCode(number); // #0001
+    const formattedCode = formatProductCode(number);
 
     const matchNumber =
-      String(number).includes(searchValue) || // 1, 2, 10...
-      formattedCode.toLowerCase().includes(searchValue) || // #0001
-      formattedCode.replace("#", "").includes(searchValue); // 0001
+      String(number).includes(searchValue) ||
+      formattedCode.toLowerCase().includes(searchValue) ||
+      formattedCode.replace("#", "").includes(searchValue);
 
     return matchName || matchNumber;
   });
+
+  useEffect(() => {
+    const savedProductId = sessionStorage.getItem("catalog-return-product-id");
+
+    if (!savedProductId) return;
+    if (!filteredProducts.some((product) => product._id === savedProductId)) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      const element = document.getElementById(`product-card-${savedProductId}`);
+
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        sessionStorage.removeItem("catalog-return-product-id");
+        sessionStorage.removeItem("catalog-return-category");
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [filteredProducts]);
 
   const selectedCategoryData = selectedCategory
     ? categoryMap[selectedCategory]
@@ -342,6 +488,130 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     (selectedCategory && orderedProductsByCategory[selectedCategory]?.length
       ? orderedProductsByCategory[selectedCategory][0]?.image?.url
       : null);
+
+  const cartTotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+  const cartQuantity = cart.reduce((acc, item) => acc + item.quantity, 0);
+
+  const pendingPricePreview = pendingProduct
+    ? getAppliedPrice(pendingProduct.product, quantity)
+    : null;
+
+  const handleOpenQuantityModal = (
+    product: PropsProduct,
+    productNumber?: number,
+  ) => {
+    setPendingProduct({ product, productNumber });
+    setQuantity(1);
+    setQuantityModalOpen(true);
+  };
+
+  const handleConfirmAddToCart = () => {
+    if (!pendingProduct) return;
+
+    const safeQuantity = Math.max(1, Number(quantity) || 1);
+    const product = pendingProduct.product;
+    const productAny = product as any;
+
+    const productCode =
+      typeof pendingProduct.productNumber === "number"
+        ? formatProductCode(pendingProduct.productNumber)
+        : "#0000";
+
+    const normalPrice = Number(
+      productAny?.priceUnit ?? productAny?.salePrice ?? productAny?.price ?? 0,
+    );
+
+    const wholesalePrice = Number(
+      productAny?.wholesalePrice ??
+        productAny?.priceWholesale ??
+        productAny?.atacadoPrice ??
+        normalPrice,
+    );
+
+    const isWholesale = safeQuantity >= 12;
+
+    const unitPrice = isWholesale ? wholesalePrice : normalPrice;
+    const priceType = isWholesale ? "ATACADO" : "VAREJO";
+
+    const item: CartItem = {
+      cartId: `${product._id}-${Date.now()}`,
+      productId: product._id,
+      productCode,
+      name: product.name,
+      category: product.category || selectedCategory || "Sem categoria",
+      quantity: safeQuantity,
+      unitPrice,
+      subtotal: unitPrice * safeQuantity,
+      priceType,
+      wholesaleMinQty: 12,
+      normalPrice,
+      wholesalePrice,
+    };
+
+    setCart((prev) => [...prev, item]);
+    setQuantityModalOpen(false);
+    setPendingProduct(null);
+    triggerCartAnimation();
+  };
+
+  const handleRemoveCartItem = (cartId: string) => {
+    setCart((prev) => prev.filter((item) => item.cartId !== cartId));
+  };
+
+  const handleClearCart = () => {
+    if (!window.confirm("Deseja limpar todo o carrinho?")) return;
+    setCart([]);
+  };
+
+  const handleFinishOrder = () => {
+    if (!cart.length) {
+      window.alert("Adicione pelo menos um produto ao carrinho.");
+      return;
+    }
+
+    if (!customer.name.trim()) {
+      window.alert("Informe o nome do cliente.");
+      return;
+    }
+
+    generateOrderPDF({
+      customer,
+      cart,
+    });
+
+    const message = `Olá, segue meu pedido.
+
+Cliente: ${customer.name}
+Telefone: ${customer.phone || "Não informado"}
+Itens: ${cart.length}
+Quantidade total: ${cartQuantity}
+Total: ${formatCurrency(cartTotal)}
+
+O arquivo da tabela do pedido foi gerado no meu aparelho. Vou anexar ele nesta conversa.`;
+
+    window.open(
+      `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(message)}`,
+      "_blank",
+    );
+  };
+
+  const WHOLESALE_MIN_QTY = 12;
+
+  function getNormalPrice(product: any) {
+    return Number(
+      product?.priceUnit ?? product?.salePrice ?? product?.price ?? 0,
+    );
+  }
+
+  function getWholesalePrice(product: any) {
+    return Number(
+      product?.wholesalePrice ??
+        product?.priceWholesale ??
+        product?.attackPrice ??
+        product?.atacadoPrice ??
+        getNormalPrice(product),
+    );
+  }
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Tem certeza que deseja excluir este produto?")) return;
@@ -367,6 +637,54 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
     router.push(
       `${pathname}/formProduct?categoryId=${categoryData._id}&mode=update`,
     );
+  };
+
+  const triggerCartAnimation = () => {
+    setCartAnimation(true);
+
+    setTimeout(() => {
+      setCartAnimation(false);
+    }, 700);
+  };
+
+  const updateCartQuantity = (cartId: string, nextQuantity: number) => {
+    const safeQuantity = Math.max(1, Number(nextQuantity) || 1);
+
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.cartId !== cartId) return item;
+
+        const isWholesale = safeQuantity >= 12;
+
+        const unitPrice =
+          isWholesale && item.wholesalePrice
+            ? item.wholesalePrice
+            : (item.normalPrice ?? item.unitPrice);
+
+        return {
+          ...item,
+          quantity: safeQuantity,
+          unitPrice,
+          subtotal: unitPrice * safeQuantity,
+          priceType: isWholesale ? "ATACADO" : "VAREJO",
+          wholesaleMinQty: 12,
+        };
+      }),
+    );
+  };
+
+  const incrementCartItem = (cartId: string) => {
+    const item = cart.find((i) => i.cartId === cartId);
+    if (!item) return;
+
+    updateCartQuantity(cartId, item.quantity + 1);
+  };
+
+  const decrementCartItem = (cartId: string) => {
+    const item = cart.find((i) => i.cartId === cartId);
+    if (!item) return;
+
+    updateCartQuantity(cartId, item.quantity - 1);
   };
 
   const handleCategoryDelete = async (category: string) => {
@@ -466,6 +784,9 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
 
   return (
     <main className="min-h-screen bg-[#fffaf5] px-3 py-4 text-neutral-900 sm:px-4 sm:py-5 lg:px-6 lg:py-6">
+      {cartAnimation && (
+        <div className="pointer-events-none fixed bottom-24 right-8 z-[2000] h-5 w-5 animate-[flyToCart_0.7s_ease-out_forwards] rounded-full bg-orange-500 shadow-[0_0_24px_rgba(249,115,22,0.75)]" />
+      )}
       <div className="mx-auto w-full max-w-[1180px]">
         <div className="mb-5 flex flex-col gap-4 sm:mb-6 sm:gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-4 sm:gap-3 md:flex-row md:items-center">
@@ -475,7 +796,7 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                   setLoading(true);
                   router.push("/");
                 }}
-                className="inline-flex h-11 w-fit items-center gap-2 rounded-xl border border-orange-200 bg-white px-4 text-sm font-semibold text-[#9a3412] transition hover:bg-orange-50 hover:border-orange-300"
+                className="inline-flex h-11 w-fit items-center gap-2 rounded-xl border border-orange-200 bg-white px-4 text-sm font-semibold text-[#9a3412] transition hover:border-orange-300 hover:bg-orange-50"
               >
                 <FiArrowLeft size={18} />
                 Voltar
@@ -484,6 +805,22 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
           </div>
 
           <div className="flex w-full items-center gap-3 md:w-auto">
+            {!isAdmin && (
+              <button
+                type="button"
+                onClick={() => setCartOpen(true)}
+                className="fixed bottom-5 right-5 z-[900] inline-flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-[0_18px_40px_rgba(15,23,42,0.28)] transition hover:-translate-y-1 hover:bg-orange-600"
+              >
+                <FiShoppingCart size={22} />
+
+                {cart.length > 0 && (
+                  <span className="absolute -right-1 -top-1 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[11px] font-black text-white">
+                    {cart.length}
+                  </span>
+                )}
+              </button>
+            )}
+
             <button
               onClick={() => setOpenSearch((p) => !p)}
               className="inline-flex h-11 w-11 min-w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-[0_14px_28px_rgba(249,115,22,0.20)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_34px_rgba(249,115,22,0.28)]"
@@ -620,6 +957,7 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
                     onSelect={setSelectedProduct}
                     sortable={isAdmin}
                     productNumbers={currentProductNumbers}
+                    onAddToCart={handleOpenQuantityModal}
                   />
                 </SortableContext>
               </DndContext>
@@ -627,6 +965,355 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
           )}
         </section>
       </div>
+
+      {quantityModalOpen && pendingProduct && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[4px]">
+          <div className="w-full max-w-[420px] rounded-[26px] bg-white p-5 shadow-2xl sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex rounded-full bg-orange-50 px-3 py-1 text-[11px] font-extrabold text-orange-700">
+                  {pendingProduct.productNumber
+                    ? formatProductCode(pendingProduct.productNumber)
+                    : "Produto"}
+                </span>
+
+                <h3 className="mt-3 text-xl font-black leading-7 text-neutral-900">
+                  {pendingProduct.product.name}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setQuantityModalOpen(false);
+                  setPendingProduct(null);
+                }}
+                className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs font-extrabold text-orange-700 transition hover:bg-orange-100"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-orange-100 bg-orange-50 p-4">
+              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-orange-700">
+                Quantidade
+              </p>
+
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-orange-700 shadow-sm"
+                >
+                  <FiMinus />
+                </button>
+
+                <input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) =>
+                    setQuantity(Math.max(1, Number(e.target.value) || 1))
+                  }
+                  className="h-12 w-full rounded-2xl border border-orange-200 bg-white text-center text-lg font-black text-neutral-900 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setQuantity((prev) => prev + 1)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-orange-700 shadow-sm"
+                >
+                  <FiPlus />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
+                <p className="text-xs font-bold text-neutral-500">
+                  Preço aplicado
+                </p>
+                <p className="mt-1 text-lg font-black text-neutral-900">
+                  {formatCurrency(pendingPricePreview?.unitPrice || 0)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
+                <p className="text-xs font-bold text-neutral-500">Tipo</p>
+                <p
+                  className={`mt-1 text-lg font-black ${
+                    pendingPricePreview?.priceType === "ATACADO"
+                      ? "text-green-600"
+                      : "text-orange-600"
+                  }`}
+                >
+                  {pendingPricePreview?.priceType || "VAREJO"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-neutral-900 px-4 py-3 text-xs font-semibold leading-5 text-white">
+              Atacado a partir de 12 unidades do mesmo produto:{" "}
+              {formatCurrency(getWholesalePrice(pendingProduct.product))}
+            </div>
+
+            {quantity < 12 ? (
+              <p className="mt-3 rounded-2xl bg-orange-50 px-4 py-3 text-xs font-bold leading-5 text-orange-700">
+                Adicione mais {12 - quantity} unidade(s) para ativar o preço de
+                atacado.
+              </p>
+            ) : (
+              <p className="mt-3 rounded-2xl bg-green-50 px-4 py-3 text-xs font-bold leading-5 text-green-700">
+                Preço de atacado aplicado neste produto.
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleConfirmAddToCart}
+              className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(249,115,22,0.22)] transition hover:brightness-95"
+            >
+              <FiShoppingCart />
+              Adicionar ao carrinho
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cartOpen && (
+        <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-[3px]">
+          <div className="ml-auto flex h-full w-full max-w-[460px] flex-col bg-white shadow-2xl">
+            <div className="border-b border-neutral-100 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-black text-neutral-900">
+                    Carrinho
+                  </h3>
+                  <p className="mt-1 text-sm font-medium text-neutral-500">
+                    {cart.length} item(ns) • {cartQuantity} produto(s)
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCartOpen(false)}
+                  className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-xs font-extrabold text-orange-700 transition hover:bg-orange-100"
+                >
+                  Continuar escolhendo
+                </button>
+              </div>
+
+              <p className="mt-3 rounded-2xl bg-yellow-50 px-4 py-3 text-xs font-bold leading-5 text-yellow-800">
+                As quantidades solicitadas estão sujeitas à confirmação de
+                estoque pelo proprietário.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+              {cart.length === 0 ? (
+                <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-orange-200 bg-orange-50 p-8 text-center">
+                  <div>
+                    <FiShoppingCart className="mx-auto text-3xl text-orange-500" />
+                    <p className="mt-3 text-sm font-extrabold text-orange-700">
+                      Seu carrinho está vazio.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cart.map((item) => (
+                    <div
+                      key={item.cartId}
+                      className="rounded-[22px] border border-orange-100 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.08)]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[10px] font-black text-orange-700">
+                              {item.productCode}
+                            </span>
+
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                                item.priceType === "ATACADO"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-neutral-100 text-neutral-700"
+                              }`}
+                            >
+                              {item.priceType}
+                            </span>
+                          </div>
+
+                          <h4 className="text-[15px] font-black leading-5 text-neutral-900">
+                            {item.name}
+                          </h4>
+
+                          <p className="mt-1 text-xs font-semibold text-neutral-500">
+                            {item.category}
+                          </p>
+
+                          <p className="mt-2 text-xs font-bold text-neutral-500">
+                            Unitário:{" "}
+                            <span className="text-neutral-900">
+                              {formatCurrency(item.unitPrice)}
+                            </span>
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCartItem(item.cartId)}
+                          className="inline-flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-red-50 text-red-600"
+                        >
+                          <FiTrash2 size={15} />
+                        </button>
+                      </div>
+
+                      <div className="mt-4 rounded-2xl bg-orange-50 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="inline-flex items-center rounded-full border border-orange-200 bg-white p-1">
+                            <button
+                              type="button"
+                              onClick={() => decrementCartItem(item.cartId)}
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-50 text-lg font-black text-orange-700"
+                            >
+                              -
+                            </button>
+
+                            <input
+                              type="number"
+                              min={1}
+                              value={item.quantity}
+                              onChange={(e) =>
+                                updateCartQuantity(
+                                  item.cartId,
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="h-9 w-14 bg-transparent text-center text-sm font-black text-neutral-900 outline-none"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => incrementCartItem(item.cartId)}
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-600 text-lg font-black text-white"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-[11px] font-bold uppercase text-neutral-400">
+                              Subtotal
+                            </p>
+                            <p className="text-lg font-black text-orange-600">
+                              {formatCurrency(item.subtotal)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {item.priceType === "VAREJO" && item.quantity < 12 && (
+                        <p className="mt-3 rounded-2xl bg-orange-50 px-3 py-2 text-[11px] font-bold leading-5 text-orange-700">
+                          Adicione mais {12 - item.quantity} unidade(s) deste
+                          produto para ativar o valor de atacado.
+                        </p>
+                      )}
+
+                      {item.priceType === "ATACADO" && (
+                        <p className="mt-3 rounded-2xl bg-green-50 px-3 py-2 text-[11px] font-bold leading-5 text-green-700">
+                          Valor de atacado aplicado neste produto.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-neutral-100 bg-white p-3 sm:p-4">
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={customer.name}
+                  onChange={(e) =>
+                    setCustomer((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder="Nome"
+                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                />
+
+                <input
+                  value={customer.phone}
+                  onChange={(e) =>
+                    setCustomer((prev) => ({ ...prev, phone: e.target.value }))
+                  }
+                  placeholder="Telefone"
+                  className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                />
+
+                <textarea
+                  value={customer.notes}
+                  onChange={(e) =>
+                    setCustomer((prev) => ({ ...prev, notes: e.target.value }))
+                  }
+                  placeholder="Obs."
+                  rows={2}
+                  className="col-span-2 resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                />
+              </div>
+
+              <div className="mt-3 rounded-2xl bg-neutral-900 p-3 text-white">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white/70">Total</span>
+                  <strong className="text-xl font-black text-white">
+                    {formatCurrency(cartTotal)}
+                  </strong>
+                </div>
+
+                <p className="mt-1 text-[10px] font-medium leading-4 text-white/60">
+                  Sujeito à confirmação de estoque pelo proprietário.
+                </p>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearCart}
+                  disabled={!cart.length}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 text-xs font-extrabold text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FiTrash2 />
+                  Limpar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleFinishOrder}
+                  disabled={!cart.length}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FiFileText />
+                  Gerar
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleFinishOrder}
+                disabled={!cart.length}
+                className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-600 text-xs font-extrabold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FiSend />
+                Finalizar no WhatsApp
+              </button>
+
+              <p className="mt-2 text-center text-[10px] font-medium leading-4 text-neutral-500">
+                O arquivo será baixado e anexado manualmente no WhatsApp.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedProduct && (
         <div

@@ -1,7 +1,7 @@
 "use client";
 
 import { PropsProduct } from "@/types/product";
-import { FiMove } from "react-icons/fi";
+import { FiMove, FiShoppingCart } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
 import { useSortable } from "@dnd-kit/sortable";
@@ -13,6 +13,7 @@ type ProductListProps = {
   onSelect?: (product: PropsProduct) => void;
   sortable?: boolean;
   productNumbers?: Record<string, number>;
+  onAddToCart?: (product: PropsProduct, productNumber?: number) => void;
 };
 
 function formatCurrency(value: number | string | undefined) {
@@ -35,18 +36,29 @@ function formatProductCode(value: number) {
   return `#${String(value).padStart(4, "0")}`;
 }
 
+function getProductPrice(product: PropsProduct) {
+  return (
+    (product as any)?.priceUnit ??
+    (product as any)?.salePrice ??
+    (product as any)?.price ??
+    0
+  );
+}
+
 function SortableProductCard({
   product,
   isAdmin,
   onSelect,
   sortable,
   productNumber,
+  onAddToCart,
 }: {
   product: PropsProduct;
   isAdmin?: boolean;
   onSelect?: (product: PropsProduct) => void;
   sortable?: boolean;
   productNumber?: number;
+  onAddToCart?: (product: PropsProduct, productNumber?: number) => void;
 }) {
   const router = useRouter();
 
@@ -75,8 +87,10 @@ function SortableProductCard({
       params.set("code", formatProductCode(productNumber));
     }
 
+    sessionStorage.setItem("catalog-return-product-id", product._id);
+
     if (product?.category) {
-      params.set("category", product.category);
+      sessionStorage.setItem("catalog-return-category", product.category);
     }
 
     const query = params.toString();
@@ -89,19 +103,20 @@ function SortableProductCard({
       (product as any)?.images[0]?.url) ||
     "/images/sem-imagem.png";
 
-  const price =
-    (product as any)?.priceUnit ??
-    (product as any)?.salePrice ??
-    (product as any)?.price ??
-    0;
+  const price = getProductPrice(product);
 
   return (
-    <div ref={setNodeRef} style={style} className="h-full">
-      <div
-        onClick={handleCardClick}
-        className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-[24px] border border-orange-100 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(249,115,22,0.14)]"
-      >
-        <div className="relative aspect-square w-full overflow-hidden bg-[#fff7ed]">
+    <div
+      ref={setNodeRef}
+      style={style}
+      id={`product-card-${product._id}`}
+      className="h-full scroll-mt-24"
+    >
+      <div className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-orange-100 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(249,115,22,0.14)]">
+        <div
+          onClick={handleCardClick}
+          className="relative aspect-square w-full cursor-pointer overflow-hidden bg-[#fff7ed]"
+        >
           <img
             src={imageUrl}
             alt={product?.name || "Produto"}
@@ -116,7 +131,10 @@ function SortableProductCard({
         </div>
 
         <div className="flex flex-1 flex-col p-3 sm:p-4">
-          <h3 className="line-clamp-2 min-h-[48px] text-[15px] font-extrabold leading-6 text-neutral-900 sm:text-base">
+          <h3
+            onClick={handleCardClick}
+            className="line-clamp-2 min-h-[48px] cursor-pointer text-[15px] font-extrabold leading-6 text-neutral-900 sm:text-base"
+          >
             {product?.name}
           </h3>
 
@@ -139,6 +157,20 @@ function SortableProductCard({
           )}
 
           <div className="mt-auto pt-4">
+            {!isAdmin && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToCart?.(product, productNumber);
+                }}
+                className="mb-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-sm font-extrabold text-white shadow-[0_12px_24px_rgba(249,115,22,0.22)] transition hover:brightness-95"
+              >
+                <FiShoppingCart size={17} />
+                Adicionar
+              </button>
+            )}
+
             {sortable && (
               <div className="flex justify-center">
                 <button
@@ -146,7 +178,7 @@ function SortableProductCard({
                   {...attributes}
                   {...listeners}
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex h-8 w-12 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-500 shadow-sm touch-none active:cursor-grabbing"
+                  className="inline-flex h-8 w-12 touch-none items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-neutral-500 shadow-sm active:cursor-grabbing"
                 >
                   <FiMove size={14} />
                 </button>
@@ -165,6 +197,7 @@ export default function ProductList({
   onSelect,
   sortable,
   productNumbers = {},
+  onAddToCart,
 }: ProductListProps) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
@@ -176,6 +209,7 @@ export default function ProductList({
           onSelect={onSelect}
           sortable={sortable}
           productNumber={productNumbers[product._id]}
+          onAddToCart={onAddToCart}
         />
       ))}
     </div>
