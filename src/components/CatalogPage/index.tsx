@@ -1403,25 +1403,95 @@ Vou enviar o PDF do pedido em anexo.`;
       <PageLoading visible={loading} />
 
       {orderReadyOpen && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-[380px] rounded-3xl bg-white p-5 shadow-2xl">
-            <h3 className="text-xl font-black text-neutral-900">
-              Pedido pronto
-            </h3>
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-3 backdrop-blur-[3px]">
+          <div className="max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl">
+            <div className="text-center">
+              <span className="inline-flex rounded-full bg-green-100 px-4 py-1.5 text-xs font-black text-green-700">
+                Pedido gerado com sucesso
+              </span>
 
-            <p className="mt-2 text-sm leading-6 text-neutral-500">
-              Agora envie o PDF do pedido para o vendedor pelo WhatsApp.
-            </p>
+              <h3 className="mt-3 text-xl font-black text-neutral-900">
+                Pedido pronto
+              </h3>
 
-            <div className="mt-5 grid gap-3">
-              <button
-                type="button"
-                onClick={handleSharePDF}
-                className="h-12 rounded-2xl bg-orange-600 text-sm font-black text-white"
-              >
-                Compartilhar PDF
-              </button>
+              <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 text-orange-600">⚠️</div>
 
+                  <div>
+                    <p className="text-sm font-extrabold text-orange-700">
+                      Ação necessária para concluir o pedido
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-orange-700">
+                      Seu pedido foi gerado com sucesso, porém ainda não foi
+                      finalizado. Para que ele seja processado, é necessário
+                      enviá-lo ao vendedor pelo WhatsApp.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 🔥 TUTORIAL VISUAL */}
+            <div className="mt-4">
+              <p className="text-sm font-black text-neutral-900">
+                Como anexar o PDF:
+              </p>
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                {/* PASSO 1 */}
+                <div className="rounded-2xl border bg-neutral-50 p-2 text-center">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
+                    alt="Abrir WhatsApp"
+                    className="mx-auto h-16 object-contain"
+                  />
+                  <p className="mt-2 text-[11px] font-black text-neutral-700">
+                    1. Abra o WhatsApp do Vendedor
+                  </p>
+                </div>
+
+                {/* PASSO 2 */}
+                <div className="rounded-2xl border bg-neutral-50 p-2 text-center">
+                  <img
+                    src="https://cdn-icons-png.flaticon.com/512/1828/1828919.png"
+                    alt="Clipe WhatsApp"
+                    className="mx-auto h-16 object-contain"
+                  />
+                  <p className="mt-2 text-[11px] font-black text-neutral-700">
+                    2. Toque no <span className="text-[17px]">📎</span>
+                  </p>
+                </div>
+
+                {/* PASSO 3 */}
+                <div className="rounded-2xl border bg-neutral-50 p-2 text-center">
+                  <img
+                    src="https://cdn-icons-png.flaticon.com/512/337/337946.png"
+                    alt="Documento"
+                    className="mx-auto h-16 object-contain"
+                  />
+                  <p className="mt-2 text-[11px] font-black text-neutral-700">
+                    3. Vá em Documento
+                  </p>
+                </div>
+
+                {/* PASSO 4 */}
+                <div className="rounded-2xl border bg-neutral-50 p-2 text-center">
+                  <img
+                    src="https://cdn-icons-png.flaticon.com/512/337/337732.png"
+                    alt="PDF"
+                    className="mx-auto h-16 object-contain"
+                  />
+                  <p className="mt-2 text-[11px] font-black text-neutral-700">
+                    4. Selecione o PDF
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 🔥 BOTÕES */}
+            <div className="mt-5 grid gap-2">
               <button
                 type="button"
                 onClick={handleOpenOwnerWhatsApp}
@@ -1432,16 +1502,24 @@ Vou enviar o PDF do pedido em anexo.`;
 
               <button
                 type="button"
-                onClick={handleDownloadPDFAgain}
-                className="h-12 rounded-2xl border border-neutral-200 text-sm font-black text-neutral-700"
+                onClick={handleSharePDF}
+                className="h-12 rounded-2xl bg-orange-600 text-sm font-black text-white"
               >
-                Baixar PDF novamente
+                Compartilhar ou salvar pedido (PDF)
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadPDFAgain}
+                className="h-11 rounded-2xl border text-sm font-black text-neutral-700"
+              >
+                Baixar PDF
               </button>
 
               <button
                 type="button"
                 onClick={() => setOrderReadyOpen(false)}
-                className="text-xs font-bold text-neutral-400"
+                className="mt-1 text-xs font-bold text-neutral-400"
               >
                 Fechar
               </button>
