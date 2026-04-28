@@ -36,5 +36,11 @@ export function generateOrderPDF({ customer, cart }: any) {
     (doc as any).lastAutoTable.finalY + 12,
   );
 
-  doc.save(`pedido-${customer.name || "cliente"}.pdf`);
+  const pdfBlob = doc.output("blob");
+
+  const file = new File([pdfBlob], "pedido.pdf", {
+    type: "application/pdf",
+  });
+
+  return file;
 }

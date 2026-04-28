@@ -272,6 +272,8 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
   >({});
 
   const [cartAnimation, setCartAnimation] = useState(false);
+  const [generatedPdfFile, setGeneratedPdfFile] = useState<File | null>(null);
+  const [orderReadyOpen, setOrderReadyOpen] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -574,11 +576,35 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
       return;
     }
 
-    generateOrderPDF({
+    const pdfFile = generateOrderPDF({
       customer,
       cart,
     });
 
+    setGeneratedPdfFile(pdfFile);
+    setOrderReadyOpen(true);
+  };
+
+  const handleSharePDF = async () => {
+    if (!generatedPdfFile) return;
+
+    if (
+      navigator.canShare &&
+      navigator.canShare({ files: [generatedPdfFile] })
+    ) {
+      await navigator.share({
+        title: "Pedido",
+        text: "Segue meu pedido em anexo.",
+        files: [generatedPdfFile],
+      });
+
+      return;
+    }
+
+    window.alert("Este celular não permite compartilhar o PDF diretamente.");
+  };
+
+  const handleOpenOwnerWhatsApp = () => {
     const message = `Olá, segue meu pedido.
 
 Cliente: ${customer.name}
@@ -587,12 +613,23 @@ Itens: ${cart.length}
 Quantidade total: ${cartQuantity}
 Total: ${formatCurrency(cartTotal)}
 
-O arquivo da tabela do pedido foi gerado no meu aparelho. Vou anexar ele nesta conversa.`;
+Vou enviar o PDF do pedido em anexo.`;
 
     window.open(
       `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(message)}`,
       "_blank",
     );
+  };
+
+  const handleDownloadPDFAgain = () => {
+    if (!generatedPdfFile) return;
+
+    const url = URL.createObjectURL(generatedPdfFile);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = generatedPdfFile.name || "pedido.pdf";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const WHOLESALE_MIN_QTY = 12;
@@ -1364,6 +1401,54 @@ O arquivo da tabela do pedido foi gerado no meu aparelho. Vou anexar ele nesta c
       )}
 
       <PageLoading visible={loading} />
+
+      {orderReadyOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-[380px] rounded-3xl bg-white p-5 shadow-2xl">
+            <h3 className="text-xl font-black text-neutral-900">
+              Pedido pronto
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-neutral-500">
+              Agora envie o PDF do pedido para o vendedor pelo WhatsApp.
+            </p>
+
+            <div className="mt-5 grid gap-3">
+              <button
+                type="button"
+                onClick={handleSharePDF}
+                className="h-12 rounded-2xl bg-orange-600 text-sm font-black text-white"
+              >
+                Compartilhar PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenOwnerWhatsApp}
+                className="h-12 rounded-2xl bg-green-600 text-sm font-black text-white"
+              >
+                Abrir WhatsApp do vendedor
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadPDFAgain}
+                className="h-12 rounded-2xl border border-neutral-200 text-sm font-black text-neutral-700"
+              >
+                Baixar PDF novamente
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOrderReadyOpen(false)}
+                className="text-xs font-bold text-neutral-400"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
