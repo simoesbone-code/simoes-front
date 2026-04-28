@@ -275,7 +275,29 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
   const [generatedPdfFile, setGeneratedPdfFile] = useState<File | null>(null);
   const [orderReadyOpen, setOrderReadyOpen] = useState(false);
 
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const CART_STORAGE_KEY = "catalog-cart";
+  const CART_EXPIRATION_MS = 1000 * 60 * 60 * 6;
+
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window === "undefined") return [];
+
+    const saved = localStorage.getItem(CART_STORAGE_KEY);
+    if (!saved) return [];
+
+    try {
+      const parsed = JSON.parse(saved);
+
+      if (Date.now() > parsed.expiresAt) {
+        localStorage.removeItem(CART_STORAGE_KEY);
+        return [];
+      }
+
+      return parsed.items || [];
+    } catch {
+      localStorage.removeItem(CART_STORAGE_KEY);
+      return [];
+    }
+  });
   const [cartOpen, setCartOpen] = useState(false);
   const [quantityModalOpen, setQuantityModalOpen] = useState(false);
   const [pendingProduct, setPendingProduct] = useState<{
@@ -347,6 +369,18 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
       {} as Record<string, CategoryProps>,
     );
   }, [dataCategory]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    localStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify({
+        items: cart,
+        expiresAt: Date.now() + CART_EXPIRATION_MS,
+      }),
+    );
+  }, [cart]);
 
   useEffect(() => {
     const backendCategoryOrder = configData?.categoryOrder || [];
@@ -562,7 +596,9 @@ export default function CatalogPage({ products, adm, refetch }: Props) {
 
   const handleClearCart = () => {
     if (!window.confirm("Deseja limpar todo o carrinho?")) return;
+
     setCart([]);
+    localStorage.removeItem(CART_STORAGE_KEY);
   };
 
   const handleFinishOrder = () => {
@@ -1031,6 +1067,7 @@ Vou enviar o PDF do pedido em anexo.`;
               </button>
             </div>
 
+            {/* QUANTIDADE */}
             <div className="mt-5 rounded-2xl border border-orange-100 bg-orange-50 p-4">
               <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-orange-700">
                 Quantidade
@@ -1065,6 +1102,7 @@ Vou enviar o PDF do pedido em anexo.`;
               </div>
             </div>
 
+            {/* PREÇO */}
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
                 <p className="text-xs font-bold text-neutral-500">
@@ -1089,11 +1127,13 @@ Vou enviar o PDF do pedido em anexo.`;
               </div>
             </div>
 
+            {/* INFO ATACADO */}
             <div className="mt-3 rounded-2xl bg-neutral-900 px-4 py-3 text-xs font-semibold leading-5 text-white">
               Atacado a partir de 12 unidades do mesmo produto:{" "}
               {formatCurrency(getWholesalePrice(pendingProduct.product))}
             </div>
 
+            {/* AVISO ATACADO */}
             {quantity < 12 ? (
               <p className="mt-3 rounded-2xl bg-orange-50 px-4 py-3 text-xs font-bold leading-5 text-orange-700">
                 Adicione mais {12 - quantity} unidade(s) para ativar o preço de
@@ -1105,6 +1145,19 @@ Vou enviar o PDF do pedido em anexo.`;
               </p>
             )}
 
+            {/* 🔥 ALERTA DE EXPIRAÇÃO */}
+            <div className="mt-3 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3">
+              <p className="text-xs font-extrabold text-yellow-800">
+                Atenção importante
+              </p>
+              <p className="mt-1 text-xs leading-5 text-yellow-700">
+                Os produtos adicionados ao carrinho ficam salvos temporariamente
+                e serão removidos automaticamente após 6 horas caso o pedido não
+                seja finalizado.
+              </p>
+            </div>
+
+            {/* BOTÃO */}
             <button
               type="button"
               onClick={handleConfirmAddToCart}
